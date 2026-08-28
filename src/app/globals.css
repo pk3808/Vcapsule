@@ -87,20 +87,30 @@
     scroll-behavior: smooth;
   }
 
-  /* Custom Clean Scrollbar */
+  /* Ultra-Minimal Clean Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #d4ccbe;
+    background: rgba(0, 0, 0, 0.12);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #b8aea0;
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  /* Dark container scrollbar styling */
+  .dark-chat-container ::-webkit-scrollbar-thumb,
+  [class*="bg-[#18181b]"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .dark-chat-container ::-webkit-scrollbar-thumb:hover,
+  [class*="bg-[#18181b]"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
   }
 }
 
