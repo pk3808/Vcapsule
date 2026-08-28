@@ -13,13 +13,15 @@ import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
-  Volume2, VolumeX, Heart, Maximize2
+  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import EmojiPicker from "emoji-picker-react";
 import imageCompression from "browser-image-compression";
 import { VoiceNotePlayer } from "@/components/shared/VoiceNotePlayer";
+import { VoiceCallModal } from "@/components/shared/VoiceCallModal";
+import { useToast } from "@/components/shared/VibeToast";
 import { playSendSound, playReceiveSound, playReactionSound } from "@/lib/soundFx";
 
 export default function ChatPage({ params }) {
@@ -27,6 +29,7 @@ export default function ChatPage({ params }) {
   const roomId = unwrappedParams.id;
   const { user, mounted } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [isReady, setIsReady] = useState(false);
   const [currentRoom, setCurrentRoom] = useState(null);
@@ -44,6 +47,7 @@ export default function ChatPage({ params }) {
   const [particles, setParticles] = useState([]);
   const [doubleClickedHeartId, setDoubleClickedHeartId] = useState(null);
   const [seenMessageIds, setSeenMessageIds] = useState(new Set());
+  const [activeCallState, setActiveCallState] = useState(null);
 
   const [pendingFile, setPendingFile] = useState(null);
 
@@ -670,7 +674,7 @@ export default function ChatPage({ params }) {
       }, 1000);
 
     } catch (err) {
-      alert("Microphone access denied.");
+      showToast("Microphone access denied. Please allow microphone permissions in your browser.", "error");
     }
   };
 
@@ -692,6 +696,7 @@ export default function ChatPage({ params }) {
     const link = `${window.location.origin}/chat/${roomId}`;
     navigator.clipboard.writeText(link);
     setIsCopied(true);
+    showToast("Room invite link copied to clipboard! Share it with friends.", "success");
     setTimeout(() => setIsCopied(false), 2000);
   };
 
@@ -741,8 +746,28 @@ export default function ChatPage({ params }) {
           </div>
         </div>
 
-        {/* Right: Sound Toggle, Mobile Sidebar Toggle & Invite */}
+        {/* Right: Voice Call, Sound Toggle, Mobile Sidebar Toggle & Invite */}
         <div className="flex items-center gap-2">
+          {/* Voice Call Button */}
+          <button
+            onClick={() => {
+              const other = allMembers.find(m => !m.isMe);
+              if (!other) {
+                showToast("No other participant is in the room yet! Invite a friend to start talking.", "warning");
+                return;
+              }
+              setActiveCallState({
+                type: "OUTGOING",
+                targetUser: { id: other.id, name: other.name, avatar: other.avatar }
+              });
+            }}
+            className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-[#34d399] hover:bg-[#10b981] text-black font-extrabold text-xs sm:text-sm flex items-center gap-1.5 border-2 border-black shadow-[2px_2px_0px_#18181b] transition-transform hover:scale-105 active:scale-95"
+            title="Start Voice Call"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Voice Call</span>
+          </button>
+
           {/* Sound FX Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -849,10 +874,21 @@ export default function ChatPage({ params }) {
                     <span className="font-bold text-xs text-[#18181b] truncate">
                       {member.name}
                     </span>
-                    {member.isMe && (
+                    {member.isMe ? (
                       <span className="text-[9px] font-black bg-[#ffd028] text-black px-1.5 py-0.2 rounded-full border border-black">
                         You
                       </span>
+                    ) : (
+                      <button
+                        onClick={() => setActiveCallState({
+                          type: "OUTGOING",
+                          targetUser: { id: member.id, name: member.name, avatar: member.avatar }
+                        })}
+                        className="p-1 rounded-full bg-[#34d399] hover:bg-[#10b981] text-black border border-black transition-transform hover:scale-110"
+                        title={`Call ${member.name}`}
+                      >
+                        <Phone className="w-2.5 h-2.5" />
+                      </button>
                     )}
                   </div>
                   <span className="text-[10px] text-emerald-600 font-bold block">
@@ -1299,6 +1335,16 @@ export default function ChatPage({ params }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── WEBRTC VOICE CALL MODAL & FLOATING PILL ───────── */}
+      <VoiceCallModal
+        channel={channelRef.current}
+        currentUser={user}
+        roomId={roomId}
+        otherParticipants={allMembers.filter(m => !m.isMe)}
+        activeCallState={activeCallState}
+        setActiveCallState={setActiveCallState}
+      />
 
     </div>
   );

@@ -10,6 +10,7 @@ const inter = Inter({
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Navbar } from "@/components/shared/Navbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ToastProvider } from "@/components/shared/VibeToast";
 
 export const metadata = {
   title: "VibeChat — The Fun Concept Chat App",
@@ -24,10 +25,12 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col bg-notebook-grid text-foreground selection:bg-yellow-300 selection:text-black">
         <AuthProvider>
-          <TooltipProvider>
-            <Navbar />
-            <main className="flex-1 flex flex-col">{children}</main>
-          </TooltipProvider>
+          <ToastProvider>
+            <TooltipProvider>
+              <Navbar />
+              <main className="flex-1 flex flex-col">{children}</main>
+            </TooltipProvider>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>
