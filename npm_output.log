@@ -2,15 +2,20 @@
 > nextjs-app@0.1.0 dev
 > next dev
 
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
 ▲ Next.js 16.3.3 (Turbopack)
-- Local:         http://localhost:3000
-- Network:       http://192.168.0.2:3000
-✓ Ready in 1240ms
-✓ Running next.config.mjs took 37ms
+- Local:         http://localhost:3001
+- Network:       http://192.168.0.2:3001
+✓ Ready in 1029ms
+✓ Running next.config.mjs took 24ms
+⨯ Another next dev server is already running.
 
- GET /profile 200 in 816ms (next.js: 341ms, application-code: 475ms)
- GET /profile 200 in 161ms (next.js: 22ms, application-code: 138ms)
- GET / 200 in 63ms (next.js: 22ms, application-code: 40ms)
- GET / 200 in 112ms (next.js: 5ms, application-code: 107ms)
- GET / 200 in 55ms (next.js: 5ms, application-code: 50ms)
- GET /profile 200 in 49ms (next.js: 4ms, application-code: 45ms)
+- Local:        http://localhost:3000
+- PID:          251502
+- Dir:          /app
+- Log:          .next/dev/logs/next-development.log
+
+You can access the existing server at http://localhost:3000,
+or run kill 251502 to stop it and start a new one.
+[ GET /profile 200 in 158ms (next.js: 22ms, application-code: 135ms)
+[?25h
