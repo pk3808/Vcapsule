@@ -128,7 +128,13 @@ export default function ChatPage({ params }) {
           setMessages(formattedMessages);
         }
 
-        // 3. Fetch Participants
+        // 3. Auto-join user into room_members
+        await supabase.from("room_members").upsert({
+          room_id: roomId,
+          user_id: user.id
+        }, { onConflict: "room_id, user_id" });
+
+        // 4. Fetch Participants
         const { data: membersData } = await supabase
           .from("room_members")
           .select("user_id, profiles (id, username, avatar_url)")
@@ -158,6 +164,10 @@ export default function ChatPage({ params }) {
       isActive = false;
     };
   }, [user, mounted, router, roomId]);
+
+  // Realtime active presence members
+  const [onlineMembers, setOnlineMembers] = useState([]);
+  const [realtimeChannel, setRealtimeChannel] = useState(null);
 
   // Reactions state with localStorage persistence
   const [reactions, setReactions] = useState({});
@@ -305,15 +315,24 @@ export default function ChatPage({ params }) {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const typingMap = {};
+        const onlineMap = new Map();
         Object.values(state).forEach((presences) => {
           presences.forEach((p) => {
+            if (p.userId) {
+              onlineMap.set(p.userId, {
+                id: p.userId,
+                name: p.username || "Friend",
+                avatar: p.avatar,
+                isOnline: true
+              });
+            }
             if (p.userId && p.userId !== user?.id && p.isTyping) {
               typingMap[p.userId] = p.username || "Someone";
             }
           });
         });
-        // Accurately replace typing state so stopped users are removed
         setTypingUsers(typingMap);
+        setOnlineMembers(Array.from(onlineMap.values()));
       })
       .on('broadcast', { event: 'typing' }, (response) => {
         const { userId, username, isTyping } = response.payload || {};
@@ -392,10 +411,12 @@ export default function ChatPage({ params }) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           channelRef.current = channel;
+          setRealtimeChannel(channel);
           try {
             await channel.track({
               userId: user.id,
               username: user.name || "Friend",
+              avatar: user.avatar,
               isTyping: false
             });
           } catch (err) {}
@@ -404,6 +425,7 @@ export default function ChatPage({ params }) {
 
     return () => {
       channelRef.current = null;
+      setRealtimeChannel(null);
       supabase.removeChannel(channel);
     };
   }, [isReady, roomId, user, soundEnabled]);
@@ -718,10 +740,22 @@ export default function ChatPage({ params }) {
 
   if (!user) return null;
 
-  const allMembers = [
-    ...(participants.some(p => p.id === user.id) ? [] : [{ id: user.id, name: user.name, avatar: user.avatar, isMe: true }]),
-    ...participants.map(p => ({ ...p, isMe: p.id === user.id }))
-  ];
+  const mergedMembersMap = new Map();
+  mergedMembersMap.set(user.id, { id: user.id, name: user.name, avatar: user.avatar, isMe: true, isOnline: true });
+
+  onlineMembers.forEach(m => {
+    if (m.id !== user.id) {
+      mergedMembersMap.set(m.id, { ...m, isMe: false, isOnline: true });
+    }
+  });
+
+  participants.forEach(p => {
+    if (!mergedMembersMap.has(p.id)) {
+      mergedMembersMap.set(p.id, { ...p, isMe: p.id === user.id, isOnline: false });
+    }
+  });
+
+  const allMembers = Array.from(mergedMembersMap.values());
 
   const activeTypingNames = Object.values(typingUsers);
 
@@ -1338,7 +1372,7 @@ export default function ChatPage({ params }) {
 
       {/* ── WEBRTC VOICE CALL MODAL & FLOATING PILL ───────── */}
       <VoiceCallModal
-        channel={channelRef.current}
+        channel={realtimeChannel || channelRef.current}
         currentUser={user}
         roomId={roomId}
         otherParticipants={allMembers.filter(m => !m.isMe)}

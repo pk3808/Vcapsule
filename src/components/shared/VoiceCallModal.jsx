@@ -35,6 +35,7 @@ export function VoiceCallModal({
   const peerConnectionRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const callTimerRef = useRef(null);
+  const callInitiatedRef = useRef(false);
 
   // Clean up all call streams and peer connection
   const cleanupCall = useCallback(() => {
@@ -44,6 +45,7 @@ export function VoiceCallModal({
       callTimerRef.current = null;
     }
     setCallDuration(0);
+    callInitiatedRef.current = false;
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -97,7 +99,7 @@ export function VoiceCallModal({
   }, [channel, currentUser?.id]);
 
   // Start Call as Initiator
-  const startCall = async (targetUser) => {
+  const startCall = useCallback(async (targetUser) => {
     try {
       playRingtone();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -108,11 +110,6 @@ export function VoiceCallModal({
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-
-      setActiveCallState({
-        type: "OUTGOING",
-        targetUser,
-      });
 
       if (channel) {
         channel.send({
@@ -133,7 +130,15 @@ export function VoiceCallModal({
       console.error("Failed to start voice call:", err);
       cleanupCall();
     }
-  };
+  }, [channel, currentUser, createPeerConnection, cleanupCall]);
+
+  // Auto-initiate call when activeCallState is OUTGOING
+  useEffect(() => {
+    if (activeCallState?.type === "OUTGOING" && activeCallState?.targetUser && !callInitiatedRef.current) {
+      callInitiatedRef.current = true;
+      startCall(activeCallState.targetUser);
+    }
+  }, [activeCallState, startCall]);
 
   // Accept Incoming Call
   const acceptCall = async () => {
@@ -214,7 +219,7 @@ export function VoiceCallModal({
     const handleOffer = ({ payload }) => {
       const { offer, caller, targetId } = payload || {};
       if (targetId && targetId !== currentUser.id) return;
-      if (caller.id === currentUser.id) return;
+      if (caller?.id === currentUser.id) return;
 
       playRingtone();
       setActiveCallState({
@@ -269,7 +274,7 @@ export function VoiceCallModal({
     channel.on("broadcast", { event: "call:hangup" }, handleHangup);
 
     return () => {
-      // Clean up when unmounting
+      // Clean up
     };
   }, [channel, currentUser, createPeerConnection, cleanupCall, setActiveCallState]);
 
