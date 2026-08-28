@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const AuthContext = createContext();
 
@@ -9,60 +10,137 @@ export function AuthProvider({ children }) {
   const [rooms, setRooms] = useState([]);
   const [mounted, setMounted] = useState(false);
 
-  // Initialize from local storage immediately to avoid layout shift and redirect bugs
-  useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const storedUser = window.localStorage.getItem("vibe_user");
-        const storedRooms = window.localStorage.getItem("vibe_rooms");
-        if (storedUser) setUser(JSON.parse(storedUser));
-        if (storedRooms) setRooms(JSON.parse(storedRooms));
-      } catch (e) {}
-    }
-  });
-
   useEffect(() => {
-    // Only set mounted without mutating user directly in effect body synchronously
-    const timer = setTimeout(() => {
-        setMounted(true);
-    }, 0);
-    return () => clearTimeout(timer);
+    const initializeAuth = async () => {
+      // 1. Get initial session
+      const { data: { session } } = await supabase.auth.getSession();
+
+        // Fetch rooms globally for the app
+        const fetchRooms = async () => {
+          const { data, error } = await supabase
+            .from('rooms')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (!error && data) {
+            setRooms(data);
+          }
+        };
+        fetchRooms();
+
+      if (session?.user) {
+        // Fetch profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profile) {
+           setUser({
+              id: session.user.id,
+              email: session.user.email,
+              name: profile.username,
+              avatar: profile.avatar_url,
+           });
+        }
+      }
+      setMounted(true);
+
+      // 2. Setup auth listener
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+         if (event === "SIGNED_IN" && session) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", session.user.id)
+              .single();
+
+            if (profile) {
+               setUser({
+                  id: session.user.id,
+                  email: session.user.email,
+                  name: profile.username,
+                  avatar: profile.avatar_url,
+               });
+            }
+         } else if (event === "SIGNED_OUT") {
+            setUser(null);
+         }
+      });
+
+      return () => {
+         subscription.unsubscribe();
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = (email, username, avatar) => {
-    const newUser = {
-      email,
-      name: username || email.split("@")[0],
-      avatar: avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${email}`,
-      id: `usr_${Math.random().toString(36).substring(7)}`
-    };
-    setUser(newUser);
-    localStorage.setItem("vibe_user", JSON.stringify(newUser));
+  const login = async (email, password) => {
+     const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+     });
+     if (error) throw error;
+     return data;
   };
 
-  const register = (email, username, avatar) => {
-    // For now, login and register do the same thing locally
-    login(email, username, avatar);
+  const register = async (email, password, username, avatar) => {
+    // 1. Create user
+    const { data, error } = await supabase.auth.signUp({
+       email,
+       password,
+    });
+
+    if (error) throw error;
+
+    // 2. Create profile
+    if (data.user) {
+       const { error: profileError } = await supabase
+         .from("profiles")
+         .insert([
+            { id: data.user.id, username, avatar_url: avatar }
+         ]);
+
+       if (profileError) throw profileError;
+    }
+
+    return data;
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("vibe_user");
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const addRoom = (roomData) => {
-    const newRoom = {
-      ...roomData,
-      id: `rm_${Math.random().toString(36).substring(7)}`,
-      creatorId: user?.id,
-      members: 1, // Start with 1 member (the creator)
-      createdAt: new Date().toISOString()
-    };
+  const addRoom = async (roomData) => {
+    // Insert into rooms table
+    const { data: room, error } = await supabase
+      .from('rooms')
+      .insert([
+        {
+          name: roomData.name,
+          created_by: user?.id
+        }
+      ])
+      .select()
+      .single();
 
-    const updatedRooms = [...rooms, newRoom];
-    setRooms(updatedRooms);
-    localStorage.setItem("vibe_rooms", JSON.stringify(updatedRooms));
-    return newRoom;
+    if (error) throw error;
+
+    // Insert creator into room_members
+    const { error: memberError } = await supabase
+      .from('room_members')
+      .insert([
+        {
+          room_id: room.id,
+          user_id: user?.id
+        }
+      ]);
+
+    if (memberError) throw memberError;
+
+    setRooms(prev => [room, ...prev]);
+    return room;
   };
 
   return (
