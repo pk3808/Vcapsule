@@ -15,6 +15,7 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
   ],
 };
 
@@ -37,6 +38,7 @@ export function VoiceCallModal({
   const remoteAudioRef = useRef(null);
   const callTimerRef = useRef(null);
   const callInitiatedRef = useRef(false);
+  const iceCandidateQueueRef = useRef([]);
 
   // Clean up all call streams and peer connection
   const cleanupCall = useCallback(() => {
@@ -47,6 +49,7 @@ export function VoiceCallModal({
     }
     setCallDuration(0);
     callInitiatedRef.current = false;
+    iceCandidateQueueRef.current = [];
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -78,7 +81,7 @@ export function VoiceCallModal({
           event: "call:ice-candidate",
           payload: {
             candidate: event.candidate,
-            senderId: currentUser.id,
+            senderId: currentUser?.id,
             targetId: targetUserId,
           },
         });
@@ -106,7 +109,7 @@ export function VoiceCallModal({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
 
-      const pc = createPeerConnection(targetUser.id);
+      const pc = createPeerConnection(targetUser?.id);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       const offer = await pc.createOffer();
@@ -119,11 +122,11 @@ export function VoiceCallModal({
           payload: {
             offer,
             caller: {
-              id: currentUser.id,
-              name: currentUser.name || "Friend",
-              avatar: currentUser.avatar,
+              id: currentUser?.id,
+              name: currentUser?.name || "Friend",
+              avatar: currentUser?.avatar,
             },
-            targetId: targetUser.id,
+            targetId: targetUser?.id,
           },
         });
       }
@@ -154,6 +157,15 @@ export function VoiceCallModal({
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       await pc.setRemoteDescription(new RTCSessionDescription(activeCallState.offer));
+
+      // Drain any ICE candidates received prior to remote description
+      while (iceCandidateQueueRef.current.length > 0) {
+        const cand = iceCandidateQueueRef.current.shift();
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (e) {}
+      }
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -163,7 +175,7 @@ export function VoiceCallModal({
           event: "call:answer",
           payload: {
             answer,
-            responderId: currentUser.id,
+            responderId: currentUser?.id,
             targetId: activeCallState.caller.id,
           },
         });
@@ -176,6 +188,7 @@ export function VoiceCallModal({
       });
 
       // Start call timer
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
@@ -215,10 +228,12 @@ export function VoiceCallModal({
 
   // Bind signaling handlers to the pre-subscribed channel
   useEffect(() => {
-    const handleOffer = ({ payload }) => {
+    const handleOffer = (data) => {
+      const payload = data?.payload || data;
       const { offer, caller, targetId } = payload || {};
-      if (targetId && targetId !== currentUser?.id) return;
-      if (caller?.id === currentUser?.id) return;
+      
+      if (targetId && currentUser?.id && targetId !== currentUser.id) return;
+      if (caller?.id && currentUser?.id && caller.id === currentUser.id) return;
 
       playRingtone();
       setActiveCallState({
@@ -228,40 +243,66 @@ export function VoiceCallModal({
       });
     };
 
-    const handleAnswer = async ({ payload }) => {
-      const { answer, targetId } = payload || {};
-      if (targetId && targetId !== currentUser?.id) return;
+    const handleAnswer = async (data) => {
+      const payload = data?.payload || data;
+      const { answer, responderId, targetId } = payload || {};
 
-      if (peerConnectionRef.current) {
-        stopRingtone();
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-        playCallConnectedSound();
-        setActiveCallState((prev) => ({
-          type: "CONNECTED",
-          user: prev?.targetUser,
-        }));
+      if (targetId && currentUser?.id && targetId !== currentUser.id) return;
+      if (responderId && currentUser?.id && responderId === currentUser.id) return;
 
-        callTimerRef.current = setInterval(() => {
-          setCallDuration((prev) => prev + 1);
-        }, 1000);
-      }
-    };
-
-    const handleIceCandidate = async ({ payload }) => {
-      const { candidate, targetId } = payload || {};
-      if (targetId && targetId !== currentUser?.id) return;
-
-      if (peerConnectionRef.current && candidate) {
+      if (peerConnectionRef.current && answer) {
         try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {}
+          stopRingtone();
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+
+          // Drain queued ICE candidates
+          while (iceCandidateQueueRef.current.length > 0) {
+            const cand = iceCandidateQueueRef.current.shift();
+            try {
+              await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (e) {}
+          }
+
+          playCallConnectedSound();
+          setActiveCallState((prev) => ({
+            type: "CONNECTED",
+            user: prev?.targetUser || { name: "Friend" },
+          }));
+
+          if (callTimerRef.current) clearInterval(callTimerRef.current);
+          callTimerRef.current = setInterval(() => {
+            setCallDuration((prev) => prev + 1);
+          }, 1000);
+        } catch (err) {
+          console.error("Error setting answer:", err);
+        }
       }
     };
 
-    const handleHangup = ({ payload }) => {
+    const handleIceCandidate = async (data) => {
+      const payload = data?.payload || data;
+      const { candidate, senderId, targetId } = payload || {};
+
+      if (targetId && currentUser?.id && targetId !== currentUser.id) return;
+      if (senderId && currentUser?.id && senderId === currentUser.id) return;
+
+      if (candidate) {
+        if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
+          try {
+            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {}
+        } else {
+          iceCandidateQueueRef.current.push(candidate);
+        }
+      }
+    };
+
+    const handleHangup = (data) => {
+      const payload = data?.payload || data;
       const { senderId, targetId } = payload || {};
-      if (senderId === currentUser?.id) return;
-      if (targetId && targetId !== currentUser?.id) return;
+
+      if (senderId && currentUser?.id && senderId === currentUser.id) return;
+      if (targetId && currentUser?.id && targetId !== currentUser.id) return;
 
       playCallEndSound();
       cleanupCall();
@@ -297,7 +338,7 @@ export function VoiceCallModal({
   return (
     <>
       {/* Hidden audio element for remote stream */}
-      <audio ref={remoteAudioRef} autoPlay />
+      <audio ref={remoteAudioRef} autoPlay playsInline />
 
       <AnimatePresence>
         {/* ── MINIMIZED FLOATING PILL ── */}
