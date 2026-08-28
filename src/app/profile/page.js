@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Hash, LogOut, Settings, User } from "lucide-react";
@@ -17,7 +17,7 @@ const MOCK_ROOMS = [
 ];
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, rooms, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -40,7 +40,8 @@ export default function ProfilePage() {
         >
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-primary/10 to-transparent"></div>
 
-          <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-background shadow-md z-10">
+          <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-background shadow-md z-10 overflow-hidden">
+            <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
             <AvatarFallback className="bg-primary/5 text-primary text-4xl sm:text-5xl font-medium">
               {user.name.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -84,6 +85,27 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Show locally created rooms first */}
+            {rooms.map((room) => (
+              <Link href={`/chat/${room.id}`} key={room.id}>
+                <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full group bg-card shadow-sm hover:shadow-md border-primary/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        <Hash className="w-5 h-5 text-primary group-hover:text-primary-foreground" />
+                      </div>
+                      <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                        {room.members} members (Owner)
+                      </span>
+                    </div>
+                    <CardTitle className="mt-4 text-lg">{room.name}</CardTitle>
+                    <CardDescription className="line-clamp-2">{room.purpose}</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))}
+
+            {/* Then show mock rooms */}
             {MOCK_ROOMS.map((room) => (
               <Link href={`/chat/${room.id}`} key={room.id}>
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full group bg-card shadow-sm hover:shadow-md">
@@ -104,15 +126,17 @@ export default function ProfilePage() {
             ))}
 
             {/* Create New Room Card */}
-            <Card className="border-dashed border-2 bg-transparent hover:bg-primary/5 hover:border-primary/50 transition-colors cursor-pointer h-full min-h-[160px] flex items-center justify-center">
-              <CardContent className="flex flex-col items-center justify-center pt-6 pb-6 text-muted-foreground hover:text-primary transition-colors">
-                <div className="p-3 bg-muted rounded-full mb-3">
-                  <Hash className="w-6 h-6" />
-                </div>
-                <p className="font-medium">Join or Create Room</p>
-                <p className="text-xs mt-1 opacity-70">Head to home to start</p>
-              </CardContent>
-            </Card>
+            <Link href="/" className="block h-full">
+              <Card className="border-dashed border-2 bg-transparent hover:bg-primary/5 hover:border-primary/50 transition-colors cursor-pointer h-full min-h-[160px] flex items-center justify-center">
+                <CardContent className="flex flex-col items-center justify-center pt-6 pb-6 text-muted-foreground hover:text-primary transition-colors">
+                  <div className="p-3 bg-muted rounded-full mb-3">
+                    <Hash className="w-6 h-6" />
+                  </div>
+                  <p className="font-medium">Join or Create Room</p>
+                  <p className="text-xs mt-1 opacity-70">Head to home to start</p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         </motion.div>
 

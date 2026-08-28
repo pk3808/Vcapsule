@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Sparkles, Hash, Lock } from "lucide-react";
 
 export function CreateRoomModal({ isOpen, onOpenChange }) {
   const router = useRouter();
+  const { addRoom } = useAuth();
   const [roomName, setRoomName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [passcode, setPasscode] = useState("");
@@ -18,14 +20,21 @@ export function CreateRoomModal({ isOpen, onOpenChange }) {
     e.preventDefault();
     if (!roomName || !purpose) return;
 
-    // Mock room creation and navigation
-    const roomId = Math.random().toString(36).substring(7);
+    const newRoom = addRoom({
+      name: roomName,
+      purpose,
+      passcode
+    });
 
-    // You would normally save this to your backend (Supabase) here.
     onOpenChange(false);
 
+    // Reset form
+    setRoomName("");
+    setPurpose("");
+    setPasscode("");
+
     // Redirect to the new chat room
-    router.push(`/chat/${roomId}`);
+    router.push(`/chat/${newRoom.id}`);
   };
 
   return (

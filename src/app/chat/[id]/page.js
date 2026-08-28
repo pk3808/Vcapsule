@@ -11,9 +11,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
-  MoreVertical, Hash, Users, Copy, Check, Share2
+  MoreVertical, Hash, Users, Copy, Check, Share2, Home, User as UserIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 const MOCK_MESSAGES = [
   { id: "1", text: "Welcome to the room!", sender: { name: "System", id: "sys" }, timestamp: new Date(Date.now() - 100000).toISOString() },
@@ -30,8 +31,15 @@ const MOCK_USERS = [
 export default function ChatPage({ params }) {
   const unwrappedParams = use(params);
   const roomId = unwrappedParams.id;
-  const { user } = useAuth();
+  const { user, rooms } = useAuth();
   const router = useRouter();
+
+  // Find local room if it exists, otherwise use mock defaults
+  const currentRoom = rooms.find(r => r.id === roomId) || {
+    name: "Late Night Beats",
+    purpose: "Sharing cool tracks and vibes",
+    passcode: "vibes"
+  };
 
   const [messages, setMessages] = useState(MOCK_MESSAGES);
   const [inputValue, setInputValue] = useState("");
@@ -66,7 +74,7 @@ export default function ChatPage({ params }) {
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/chat/${roomId}?passcode=vibes`;
+    const link = `${window.location.origin}/chat/${roomId}${currentRoom.passcode ? `?passcode=${currentRoom.passcode}` : ''}`;
     navigator.clipboard.writeText(link);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
@@ -80,13 +88,37 @@ export default function ChatPage({ params }) {
       <div className="flex flex-1 flex-col min-w-0">
         {/* Chat Header */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/50 backdrop-blur-sm z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Hash className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-4">
+            <div className="flex gap-1 border-r border-border/50 pr-4 mr-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" asChild>
+                    <Link href="/">
+                      <Home className="w-4 h-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Home</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10" asChild>
+                    <Link href="/profile">
+                      <UserIcon className="w-4 h-4" />
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Profile</TooltipContent>
+              </Tooltip>
             </div>
-            <div>
-              <h2 className="font-semibold text-foreground leading-tight">Late Night Beats</h2>
-              <p className="text-xs text-muted-foreground">Sharing cool tracks and vibes</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Hash className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-foreground leading-tight">{currentRoom.name}</h2>
+                <p className="text-xs text-muted-foreground">{currentRoom.purpose}</p>
+              </div>
             </div>
           </div>
 
@@ -108,10 +140,12 @@ export default function ChatPage({ params }) {
                     {isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
-                <div className="mt-3 flex justify-between items-center bg-primary/5 p-2 rounded-md border border-primary/10">
-                  <span className="text-xs text-muted-foreground">Passcode:</span>
-                  <code className="text-sm font-mono font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">vibes</code>
-                </div>
+                {currentRoom.passcode && (
+                  <div className="mt-3 flex justify-between items-center bg-primary/5 p-2 rounded-md border border-primary/10">
+                    <span className="text-xs text-muted-foreground">Passcode:</span>
+                    <code className="text-sm font-mono font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">{currentRoom.passcode}</code>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
           </div>

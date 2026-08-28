@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "./AuthModal";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MessageSquare, User, LogOut } from "lucide-react";
 
@@ -29,8 +29,9 @@ export function Navbar() {
           <nav className="flex items-center gap-4">
             {user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors p-0 outline-none flex items-center justify-center">
+                <DropdownMenuTrigger className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors p-0 outline-none flex items-center justify-center overflow-hidden">
                   <Avatar className="h-full w-full">
+                    <AvatarImage src={user.avatar} alt={user.name} />
                     <AvatarFallback className="bg-primary/5 text-primary font-medium">
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>

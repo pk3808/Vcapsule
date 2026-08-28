@@ -8,15 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function AuthModal({ isOpen, onOpenChange }) {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [isLogin, setIsLogin] = useState(true);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!email || !password) return;
-    login(email);
+
+    if (isLogin) {
+      login(email);
+    } else {
+      if (!username) return;
+      register(email, username);
+    }
+
     onOpenChange(false);
   };
 
@@ -34,6 +42,20 @@ export function AuthModal({ isOpen, onOpenChange }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {!isLogin && (
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="vibe_master"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required={!isLogin}
+                className="bg-background border-border/50 focus-visible:ring-primary/30"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
