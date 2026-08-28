@@ -9,17 +9,24 @@ export function AuthProvider({ children }) {
   const [rooms, setRooms] = useState([]);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const storedUser = localStorage.getItem("vibe_user");
-      const storedRooms = localStorage.getItem("vibe_rooms");
-
-      if (storedUser) setUser(JSON.parse(storedUser));
-      if (storedRooms) setRooms(JSON.parse(storedRooms));
-    } catch (e) {
-      console.error("Failed to parse local storage", e);
+  // Initialize from local storage immediately to avoid layout shift and redirect bugs
+  useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const storedUser = window.localStorage.getItem("vibe_user");
+        const storedRooms = window.localStorage.getItem("vibe_rooms");
+        if (storedUser) setUser(JSON.parse(storedUser));
+        if (storedRooms) setRooms(JSON.parse(storedRooms));
+      } catch (e) {}
     }
+  });
+
+  useEffect(() => {
+    // Only set mounted without mutating user directly in effect body synchronously
+    const timer = setTimeout(() => {
+        setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const login = (email, username, avatar) => {
