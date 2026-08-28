@@ -24,18 +24,27 @@ export function AuthModal({ isOpen, onOpenChange }) {
 
   const currentAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${username}${avatarSeed}`;
 
-  const handleSubmit = (e) => {
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
     if (!email || !password) return;
 
-    if (isLogin) {
-      login(email);
-    } else {
-      if (!username) return;
-      register(email, username, currentAvatarUrl);
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        if (!username) {
+           setErrorMsg("Username is required.");
+           return;
+        }
+        await register(email, password, username, currentAvatarUrl);
+      }
+      onOpenChange(false);
+    } catch (err) {
+      setErrorMsg(err.message || "An error occurred");
     }
-
-    onOpenChange(false);
   };
 
   return (
@@ -52,6 +61,11 @@ export function AuthModal({ isOpen, onOpenChange }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {errorMsg && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+              {errorMsg}
+            </div>
+          )}
           {!isLogin && (
             <div className="space-y-4 mb-2">
               <div className="flex flex-col items-center justify-center space-y-3 p-4 bg-muted/50 rounded-xl border border-border/50">

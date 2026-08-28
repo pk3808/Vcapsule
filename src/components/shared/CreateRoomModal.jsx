@@ -13,28 +13,28 @@ export function CreateRoomModal({ isOpen, onOpenChange }) {
   const router = useRouter();
   const { addRoom } = useAuth();
   const [roomName, setRoomName] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [passcode, setPasscode] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!roomName || !purpose) return;
+    setErrorMsg("");
+    if (!roomName) return;
 
-    const newRoom = addRoom({
-      name: roomName,
-      purpose,
-      passcode
-    });
+    try {
+      const newRoom = await addRoom({
+        name: roomName,
+      });
 
-    onOpenChange(false);
+      onOpenChange(false);
 
-    // Reset form
-    setRoomName("");
-    setPurpose("");
-    setPasscode("");
+      // Reset form
+      setRoomName("");
 
-    // Redirect to the new chat room
-    router.push(`/chat/${newRoom.id}`);
+      // Redirect to the new chat room
+      router.push(`/chat/${newRoom.id}`);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to create room");
+    }
   };
 
   return (
@@ -50,6 +50,11 @@ export function CreateRoomModal({ isOpen, onOpenChange }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5 mt-2">
+          {errorMsg && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+              {errorMsg}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="roomName" className="flex items-center gap-2">
               <Hash className="w-4 h-4 text-muted-foreground" />
@@ -64,32 +69,10 @@ export function CreateRoomModal({ isOpen, onOpenChange }) {
               className="bg-background border-border/50 focus-visible:ring-primary/30"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="purpose" className="flex items-center gap-2">
-              Purpose
-            </Label>
-            <Input
-              id="purpose"
-              placeholder="What's this room about?"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              required
-              className="bg-background border-border/50 focus-visible:ring-primary/30"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="passcode" className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-muted-foreground" />
-              Passcode (Optional)
-            </Label>
-            <Input
-              id="passcode"
-              type="text"
-              placeholder="Leave empty for public"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              className="bg-background border-border/50 focus-visible:ring-primary/30"
-            />
+          <div className="space-y-2 mb-2">
+            <p className="text-xs text-muted-foreground">
+              Passcodes and room purposes will be coming in a future database update.
+            </p>
           </div>
           <DialogFooter className="pt-4">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">

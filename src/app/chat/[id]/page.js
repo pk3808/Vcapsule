@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, use } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import EmojiPicker from "emoji-picker-react";
+import imageCompression from "browser-image-compression";
 
 const MOCK_MESSAGES = [
   { id: "1", text: "Welcome to the room!", sender: { name: "System", id: "sys" }, timestamp: new Date(Date.now() - 100000).toISOString() },
@@ -36,15 +38,8 @@ export default function ChatPage({ params }) {
   const router = useRouter();
 
   const [isReady, setIsReady] = useState(false);
-
-  // Find local room if it exists, otherwise use mock defaults
-  const currentRoom = rooms.find(r => r.id === roomId) || {
-    name: "Late Night Beats",
-    purpose: "Sharing cool tracks and vibes",
-    passcode: "vibes"
-  };
-
-  const [messages, setMessages] = useState(MOCK_MESSAGES);
+  const [currentRoom, setCurrentRoom] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
@@ -64,29 +59,121 @@ export default function ChatPage({ params }) {
 
   useEffect(() => {
     let isActive = true;
-    if (mounted && isActive) {
+
+    const initializeRoom = async () => {
+      if (!mounted || !isActive) return;
+
       if (!user) {
-        const timer = setTimeout(() => {
-            if (isActive) router.replace("/");
-        }, 0);
-        return () => {
-            isActive = false;
-            clearTimeout(timer);
-        };
-      } else {
-         const timer = setTimeout(() => {
-            if (isActive) setIsReady(true);
-        }, 0);
-        return () => {
-            isActive = false;
-            clearTimeout(timer);
-        };
+        router.replace("/");
+        return;
       }
-    }
+
+      try {
+         // 1. Fetch Room Info
+         const { data: room, error: roomError } = await supabase
+           .from("rooms")
+           .select("*")
+           .eq("id", roomId)
+           .single();
+
+         if (roomError || !room) {
+           console.error("Room not found:", roomError);
+           router.replace("/");
+           return;
+         }
+
+         if (isActive) setCurrentRoom({ name: room.name, purpose: "A space to chat" });
+
+         // 2. Fetch Initial Messages
+         const { data: initialMessages, error: msgError } = await supabase
+           .from("messages")
+           .select(`
+             id,
+             content,
+             media_url,
+             media_type,
+             created_at,
+             user_id,
+             profiles (username, avatar_url)
+           `)
+           .eq("room_id", roomId)
+           .order("created_at", { ascending: true });
+
+         if (!msgError && initialMessages && isActive) {
+            const formattedMessages = initialMessages.map(msg => ({
+               id: msg.id,
+               text: msg.content,
+               sender: {
+                 id: msg.user_id,
+                 name: msg.profiles?.username || "Unknown"
+               },
+               timestamp: msg.created_at,
+               attachment: msg.media_url ? { url: msg.media_url, type: msg.media_type, name: "Attachment" } : null
+            }));
+            setMessages(formattedMessages);
+         }
+
+         if (isActive) setIsReady(true);
+
+      } catch (err) {
+         console.error(err);
+      }
+    };
+
+    initializeRoom();
+
     return () => {
       isActive = false;
     };
-  }, [user, mounted, router]);
+  }, [user, mounted, router, roomId]);
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!isReady || !roomId) return;
+
+    const subscription = supabase
+      .channel(`room:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        async (payload) => {
+          const newMsg = payload.new;
+
+          // Only process messages from others, as we optimistically add our own
+          if (newMsg.user_id === user?.id) return;
+
+          // Fetch profile of the sender
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, avatar_url")
+            .eq("id", newMsg.user_id)
+            .single();
+
+          const formattedMsg = {
+             id: newMsg.id,
+             text: newMsg.content,
+             sender: {
+               id: newMsg.user_id,
+               name: profile?.username || "Unknown"
+             },
+             timestamp: newMsg.created_at,
+             attachment: newMsg.media_url ? { url: newMsg.media_url, type: newMsg.media_type, name: "Attachment" } : null
+          };
+
+          setMessages(prev => [...prev, formattedMsg]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [isReady, roomId, user?.id]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -106,21 +193,107 @@ export default function ChatPage({ params }) {
     setPendingFile(null);
   };
 
-  const handleSendMessage = (e) => {
+  const uploadMedia = async (file, type) => {
+    let fileToUpload = file;
+    let fileName = `${Date.now()}_${file.name}`;
+
+    if (type === 'image') {
+       try {
+         const options = {
+           maxSizeMB: 0.5,
+           maxWidthOrHeight: 1920,
+           useWebWorker: true
+         };
+         fileToUpload = await imageCompression(file, options);
+         // Ensure correct extension for compressed file if necessary
+         fileName = `${Date.now()}_compressed.jpg`;
+       } catch (err) {
+         console.warn("Image compression failed, using original file", err);
+       }
+    }
+
+    const { data, error } = await supabase.storage
+      .from("chat-media")
+      .upload(`public/${fileName}`, fileToUpload, {
+         cacheControl: '3600',
+         upsert: false
+      });
+
+    if (error) {
+      console.error("Upload failed", error);
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("chat-media")
+      .getPublicUrl(data.path);
+
+    return publicUrl;
+  };
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputValue.trim() && !pendingFile) return;
 
+    // Optimistic UI update
+    const optimisticId = Math.random().toString();
     const newMessage = {
-      id: Math.random().toString(),
+      id: optimisticId,
       text: inputValue,
       sender: { name: user.name, id: user.id },
       timestamp: new Date().toISOString(),
-      attachment: pendingFile ? { url: pendingFile.url, type: pendingFile.type, name: pendingFile.name } : null
+      attachment: pendingFile ? { url: pendingFile.url, type: pendingFile.type, name: pendingFile.name, isUploading: true } : null
     };
 
-    setMessages([...messages, newMessage]);
+    setMessages(prev => [...prev, newMessage]);
+    const currentInput = inputValue;
+    const currentFile = pendingFile;
+
     setInputValue("");
     setPendingFile(null);
+
+    try {
+       let mediaUrl = null;
+       let mediaType = null;
+
+       if (currentFile) {
+          mediaUrl = await uploadMedia(currentFile.file, currentFile.type);
+          mediaType = currentFile.type;
+
+          // Update optimistic UI to remove loading state and set real URL
+          setMessages(prev => prev.map(m => m.id === optimisticId ? {
+             ...m,
+             attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
+          } : m));
+       }
+
+       // Insert into Supabase
+       const { data, error } = await supabase
+         .from('messages')
+         .insert([
+           {
+             room_id: roomId,
+             user_id: user.id,
+             content: currentInput,
+             media_url: mediaUrl,
+             media_type: mediaType
+           }
+         ])
+         .select()
+         .single();
+
+       if (error) {
+          console.error("Failed to send message:", error);
+          // Revert optimistic update on error
+          setMessages(prev => prev.filter(m => m.id !== optimisticId));
+       } else if (data) {
+          // Update the optimistic ID with the real database ID
+          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
+       }
+    } catch (err) {
+       console.error("Failed to send message:", err);
+       setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    }
   };
 
   const startRecording = async () => {
@@ -134,22 +307,55 @@ export default function ChatPage({ params }) {
         if (e.data.size > 0) audioChunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const audioUrl = URL.createObjectURL(audioBlob);
+        const audioFile = new File([audioBlob], `voice_note.webm`, { type: "audio/webm" });
+        const optimisticId = Math.random().toString();
+        const localUrl = URL.createObjectURL(audioBlob);
 
-        // Send the audio message immediately
+        // Optimistic UI
         const newMessage = {
-          id: Math.random().toString(),
+          id: optimisticId,
           text: "",
           sender: { name: user.name, id: user.id },
           timestamp: new Date().toISOString(),
-          attachment: { url: audioUrl, type: "audio", name: "Voice Note" }
+          attachment: { url: localUrl, type: "audio", name: "Voice Note", isUploading: true }
         };
         setMessages(prev => [...prev, newMessage]);
 
-        // Cleanup stream
+        // Cleanup stream early
         stream.getTracks().forEach(track => track.stop());
+
+        try {
+           const mediaUrl = await uploadMedia(audioFile, 'audio');
+
+           setMessages(prev => prev.map(m => m.id === optimisticId ? {
+             ...m,
+             attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
+           } : m));
+
+           const { data, error } = await supabase
+             .from('messages')
+             .insert([
+               {
+                 room_id: roomId,
+                 user_id: user.id,
+                 content: "",
+                 media_url: mediaUrl,
+                 media_type: 'audio'
+               }
+             ])
+             .select()
+             .single();
+
+           if (error) throw error;
+           if (data) {
+             setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
+           }
+        } catch (err) {
+           console.error("Failed to send voice note:", err);
+           setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        }
       };
 
       mediaRecorder.start();
