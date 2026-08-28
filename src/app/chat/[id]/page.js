@@ -255,6 +255,7 @@ export default function ChatPage({ params }) {
   };
 
   const typingTimersRef = useRef({});
+  const callSignalingHandlersRef = useRef({});
 
   // Realtime Channel (Messages, Reactions, Presence & Typing)
   useEffect(() => {
@@ -407,6 +408,18 @@ export default function ChatPage({ params }) {
           } catch (e) {}
           return updated;
         });
+      })
+      .on('broadcast', { event: 'call:offer' }, (payload) => {
+        callSignalingHandlersRef.current?.handleOffer?.(payload);
+      })
+      .on('broadcast', { event: 'call:answer' }, (payload) => {
+        callSignalingHandlersRef.current?.handleAnswer?.(payload);
+      })
+      .on('broadcast', { event: 'call:ice-candidate' }, (payload) => {
+        callSignalingHandlersRef.current?.handleIceCandidate?.(payload);
+      })
+      .on('broadcast', { event: 'call:hangup' }, (payload) => {
+        callSignalingHandlersRef.current?.handleHangup?.(payload);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -1373,6 +1386,7 @@ export default function ChatPage({ params }) {
       {/* ── WEBRTC VOICE CALL MODAL & FLOATING PILL ───────── */}
       <VoiceCallModal
         channel={realtimeChannel || channelRef.current}
+        callSignalingHandlersRef={callSignalingHandlersRef}
         currentUser={user}
         roomId={roomId}
         otherParticipants={allMembers.filter(m => !m.isMe)}

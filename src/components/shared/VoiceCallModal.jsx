@@ -20,6 +20,7 @@ const ICE_SERVERS = {
 
 export function VoiceCallModal({
   channel,
+  callSignalingHandlersRef,
   currentUser,
   roomId,
   otherParticipants = [],
@@ -212,14 +213,12 @@ export function VoiceCallModal({
     }
   };
 
-  // Listen to incoming signaling events
+  // Bind signaling handlers to the pre-subscribed channel
   useEffect(() => {
-    if (!channel || !currentUser) return;
-
     const handleOffer = ({ payload }) => {
       const { offer, caller, targetId } = payload || {};
-      if (targetId && targetId !== currentUser.id) return;
-      if (caller?.id === currentUser.id) return;
+      if (targetId && targetId !== currentUser?.id) return;
+      if (caller?.id === currentUser?.id) return;
 
       playRingtone();
       setActiveCallState({
@@ -231,7 +230,7 @@ export function VoiceCallModal({
 
     const handleAnswer = async ({ payload }) => {
       const { answer, targetId } = payload || {};
-      if (targetId && targetId !== currentUser.id) return;
+      if (targetId && targetId !== currentUser?.id) return;
 
       if (peerConnectionRef.current) {
         stopRingtone();
@@ -250,7 +249,7 @@ export function VoiceCallModal({
 
     const handleIceCandidate = async ({ payload }) => {
       const { candidate, targetId } = payload || {};
-      if (targetId && targetId !== currentUser.id) return;
+      if (targetId && targetId !== currentUser?.id) return;
 
       if (peerConnectionRef.current && candidate) {
         try {
@@ -261,22 +260,28 @@ export function VoiceCallModal({
 
     const handleHangup = ({ payload }) => {
       const { senderId, targetId } = payload || {};
-      if (senderId === currentUser.id) return;
-      if (targetId && targetId !== currentUser.id) return;
+      if (senderId === currentUser?.id) return;
+      if (targetId && targetId !== currentUser?.id) return;
 
       playCallEndSound();
       cleanupCall();
     };
 
-    channel.on("broadcast", { event: "call:offer" }, handleOffer);
-    channel.on("broadcast", { event: "call:answer" }, handleAnswer);
-    channel.on("broadcast", { event: "call:ice-candidate" }, handleIceCandidate);
-    channel.on("broadcast", { event: "call:hangup" }, handleHangup);
+    if (callSignalingHandlersRef) {
+      callSignalingHandlersRef.current = {
+        handleOffer,
+        handleAnswer,
+        handleIceCandidate,
+        handleHangup,
+      };
+    }
 
     return () => {
-      // Clean up
+      if (callSignalingHandlersRef) {
+        callSignalingHandlersRef.current = {};
+      }
     };
-  }, [channel, currentUser, createPeerConnection, cleanupCall, setActiveCallState]);
+  }, [currentUser?.id, callSignalingHandlersRef, cleanupCall, setActiveCallState]);
 
   const formatCallTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
