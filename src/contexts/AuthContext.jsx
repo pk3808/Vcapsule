@@ -5,29 +5,22 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("vibe_user");
-        return stored ? JSON.parse(stored) : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [user, setUser] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [mounted, setMounted] = useState(false);
 
-  const [rooms, setRooms] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("vibe_rooms");
-        return stored ? JSON.parse(stored) : [];
-      } catch (e) {
-        return [];
-      }
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const storedUser = localStorage.getItem("vibe_user");
+      const storedRooms = localStorage.getItem("vibe_rooms");
+
+      if (storedUser) setUser(JSON.parse(storedUser));
+      if (storedRooms) setRooms(JSON.parse(storedRooms));
+    } catch (e) {
+      console.error("Failed to parse local storage", e);
     }
-    return [];
-  });
+  }, []);
 
   const login = (email, username, avatar) => {
     const newUser = {
@@ -66,7 +59,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, rooms, login, register, logout, addRoom }}>
+    <AuthContext.Provider value={{ user, rooms, mounted, login, register, logout, addRoom }}>
       {children}
     </AuthContext.Provider>
   );

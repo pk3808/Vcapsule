@@ -17,16 +17,16 @@ const MOCK_ROOMS = [
 ];
 
 export default function ProfilePage() {
-  const { user, rooms, logout } = useAuth();
+  const { user, rooms, mounted, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) {
+    if (mounted && !user) {
       router.push("/");
     }
-  }, [user, router]);
+  }, [user, mounted, router]);
 
-  if (!user) return null;
+  if (!mounted || !user) return null;
 
   return (
     <div className="flex-1 bg-background p-4 sm:p-8 overflow-y-auto">

@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { MessageSquare, User, LogOut } from "lucide-react";
 
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, mounted, logout } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   return (
@@ -27,7 +27,9 @@ export function Navbar() {
           </Link>
 
           <nav className="flex items-center gap-4">
-            {user ? (
+            {!mounted ? (
+              <div className="h-10 w-10"></div>
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors p-0 outline-none flex items-center justify-center overflow-hidden">
                   <Avatar className="h-full w-full">
