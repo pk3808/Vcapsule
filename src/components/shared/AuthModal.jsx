@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RefreshCcw } from "lucide-react";
+import { RefreshCcw, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function AuthModal({ isOpen, onOpenChange }) {
   const { login, register } = useAuth();
@@ -16,14 +16,13 @@ export function AuthModal({ isOpen, onOpenChange }) {
   const [username, setUsername] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [avatarSeed, setAvatarSeed] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const generateNewAvatar = () => {
-    // Explicitly generate a random string we can append to force a new avatar
     setAvatarSeed(Math.random().toString(36).substring(7));
   };
 
   const currentAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${username}${avatarSeed}`;
-
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e) => {
@@ -31,112 +30,139 @@ export function AuthModal({ isOpen, onOpenChange }) {
     setErrorMsg("");
     if (!email || !password) return;
 
+    setIsLoading(true);
     try {
       if (isLogin) {
         await login(email, password);
       } else {
         if (!username) {
-           setErrorMsg("Username is required.");
-           return;
+          setErrorMsg("Username is required.");
+          setIsLoading(false);
+          return;
         }
         await register(email, password, username, currentAvatarUrl);
       }
       onOpenChange(false);
     } catch (err) {
       setErrorMsg(err.message || "An error occurred");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-card border-none shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold tracking-tight">
-            {isLogin ? "Welcome back" : "Create an account"}
+      <DialogContent className="sm:max-w-[420px] bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] p-6">
+        <DialogHeader className="space-y-1 mb-4">
+          <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3 py-1 rounded-full text-xs font-bold w-fit mb-2">
+            <span className="text-[#ffd028]">✦</span>
+            <span>VibeChat</span>
+          </div>
+          <DialogTitle className="text-2xl font-black text-[#18181b]">
+            {isLogin ? "Welcome back! 👋" : "Join the club! ✨"}
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogDescription className="text-stone-500 text-xs font-medium">
             {isLogin
-              ? "Enter your email and password to sign in."
-              : "Enter your details to get started."}
+              ? "Sign in to jump straight back into your spaces."
+              : "Create an account to start vibing with friends."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {errorMsg && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+            <div className="p-3 text-xs font-bold text-red-600 bg-red-100 border border-red-300 rounded-xl">
               {errorMsg}
             </div>
           )}
+
           {!isLogin && (
-            <div className="space-y-4 mb-2">
-              <div className="flex flex-col items-center justify-center space-y-3 p-4 bg-muted/50 rounded-xl border border-border/50">
-                <Label className="text-muted-foreground text-xs uppercase tracking-wider font-semibold">Your Avatar</Label>
-                <div className="relative group">
-                  <Avatar className="w-20 h-20 border-4 border-background shadow-sm bg-primary/5">
-                    <AvatarImage src={currentAvatarUrl} alt="Avatar Preview" />
-                    <AvatarFallback>{(username || "U").charAt(0).toUpperCase()}</AvatarFallback>
+            <div className="space-y-3">
+              {/* Avatar Preview Stamp */}
+              <div className="flex flex-col items-center justify-center p-3 bg-white border-2 border-dashed border-black rounded-2xl">
+                <span className="text-[10px] font-black uppercase text-stone-500 mb-2">Your Sticker Avatar</span>
+                <div className="relative">
+                  <Avatar className="w-16 h-16 border-2 border-black shadow-[2px_2px_0px_#18181b]">
+                    <AvatarImage src={currentAvatarUrl} alt="Avatar" />
+                    <AvatarFallback className="bg-[#fbcfe8] text-black font-black">
+                      {(username || "U").charAt(0).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
-                  <Button
+                  <button
                     type="button"
-                    size="icon"
-                    variant="secondary"
-                    className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full shadow-md hover:bg-primary hover:text-primary-foreground transition-all"
                     onClick={generateNewAvatar}
-                    title="Generate new avatar"
+                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#ffd028] border border-black flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-transform"
+                    title="Change avatar"
                   >
-                    <RefreshCcw className="w-3.5 h-3.5" />
-                  </Button>
+                    <RefreshCcw className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+              <div className="space-y-1">
+                <Label htmlFor="username" className="text-xs font-bold text-[#18181b]">Username</Label>
                 <Input
                   id="username"
-                  type="text"
-                  placeholder="vibe_master"
+                  placeholder="e.g. vibe_master"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required={!isLogin}
-                  className="bg-background border-border/50 focus-visible:ring-primary/30"
+                  className="bg-white border-2 border-black rounded-xl h-10 text-sm focus-visible:ring-2 focus-visible:ring-[#ffd028]"
                 />
               </div>
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+
+          <div className="space-y-1">
+            <Label htmlFor="email" className="text-xs font-bold text-[#18181b]">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="m@example.com"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="bg-background border-border/50 focus-visible:ring-primary/30"
+              className="bg-white border-2 border-black rounded-xl h-10 text-sm focus-visible:ring-2 focus-visible:ring-[#ffd028]"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+
+          <div className="space-y-1">
+            <Label htmlFor="password" className="text-xs font-bold text-[#18181b]">Password</Label>
             <Input
               id="password"
               type="password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="bg-background border-border/50 focus-visible:ring-primary/30"
+              className="bg-white border-2 border-black rounded-xl h-10 text-sm focus-visible:ring-2 focus-visible:ring-[#ffd028]"
             />
           </div>
-          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all">
-            {isLogin ? "Sign In" : "Register"}
-          </Button>
-          <div className="text-center mt-4">
+
+          {/* Yellow Pill Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-extrabold text-sm py-3.5 rounded-full border-2 border-black shadow-[3px_3px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#18181b] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <div className="w-5 h-5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+            ) : (
+              <>
+                <span>{isLogin ? "Sign In" : "Create Account"}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+
+          <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => { setIsLogin(!isLogin); setErrorMsg(""); }}
+              className="text-xs font-bold text-stone-600 hover:text-black transition-colors underline"
             >
               {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Sign in"}
+                ? "Don't have an account? Sign up here"
+                : "Already have an account? Sign in here"}
             </button>
           </div>
         </form>

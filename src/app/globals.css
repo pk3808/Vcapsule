@@ -2,43 +2,27 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,90 +33,225 @@
 }
 
 :root {
-  /* Warm off-white background, soothing palette */
-  --background: oklch(0.985 0.01 70);
-  --foreground: oklch(0.2 0.02 240);
+  /* Warm off-white / cream notebook tone */
+  --background: #f7f4eb;
+  --foreground: #18181b;
 
-  --card: oklch(1 0 0); /* Pure white cards */
-  --card-foreground: oklch(0.2 0.02 240);
+  --card: #ffffff;
+  --card-foreground: #18181b;
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 240);
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
 
-  --primary: oklch(0.45 0.15 250); /* Gentle indigo */
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #ffd028;
+  --primary-foreground: #18181b;
 
-  --secondary: oklch(0.95 0.02 240);
-  --secondary-foreground: oklch(0.3 0.02 240);
+  --secondary: #f0ebe1;
+  --secondary-foreground: #18181b;
 
-  --muted: oklch(0.96 0.01 70);
-  --muted-foreground: oklch(0.55 0.02 240);
+  --muted: #eae3d6;
+  --muted-foreground: #71717a;
 
-  --accent: oklch(0.95 0.03 260);
-  --accent-foreground: oklch(0.3 0.05 260);
+  --accent: #fef08a;
+  --accent-foreground: #18181b;
 
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: #ef4444;
+  --border: #e4dcce;
+  --input: #e4dcce;
+  --ring: #ffd028;
 
-  --border: oklch(0.9 0.01 240);
-  --input: oklch(0.9 0.01 240);
-  --ring: oklch(0.45 0.15 250);
+  --radius: 1rem;
 
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-
-  --radius: 0.75rem;
-
-  --sidebar: oklch(0.985 0.01 70);
-  --sidebar-foreground: oklch(0.2 0.02 240);
-  --sidebar-primary: oklch(0.45 0.15 250);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.95 0.02 240);
-  --sidebar-accent-foreground: oklch(0.2 0.02 240);
-  --sidebar-border: oklch(0.9 0.01 240);
-  --sidebar-ring: oklch(0.45 0.15 250);
-}
-
-.dark {
-  /* Muted dark mode for less eye strain, not pure black */
-  --background: oklch(0.25 0.01 240);
-  --foreground: oklch(0.9 0.01 240);
-  --card: oklch(0.3 0.01 240);
-  --card-foreground: oklch(0.9 0.01 240);
-  --popover: oklch(0.3 0.01 240);
-  --popover-foreground: oklch(0.9 0.01 240);
-  --primary: oklch(0.6 0.15 250);
-  --primary-foreground: oklch(0.2 0.02 240);
-  --secondary: oklch(0.35 0.01 240);
-  --secondary-foreground: oklch(0.9 0.01 240);
-  --muted: oklch(0.35 0.01 240);
-  --muted-foreground: oklch(0.7 0.01 240);
-  --accent: oklch(0.35 0.01 240);
-  --accent-foreground: oklch(0.9 0.01 240);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.4 0.01 240);
-  --input: oklch(0.4 0.01 240);
-  --ring: oklch(0.6 0.15 250);
-  --sidebar: oklch(0.25 0.01 240);
-  --sidebar-foreground: oklch(0.9 0.01 240);
-  --sidebar-primary: oklch(0.6 0.15 250);
-  --sidebar-primary-foreground: oklch(0.2 0.02 240);
-  --sidebar-accent: oklch(0.35 0.01 240);
-  --sidebar-accent-foreground: oklch(0.9 0.01 240);
-  --sidebar-border: oklch(0.4 0.01 240);
-  --sidebar-ring: oklch(0.6 0.15 250);
+  /* ChaTin Palette */
+  --chatin-yellow: #ffd028;
+  --chatin-yellow-hover: #fcc200;
+  --chatin-pink: #fbcfe8;
+  --chatin-pink-border: #f472b6;
+  --chatin-green: #34d399;
+  --chatin-green-light: #a7f3d0;
+  --chatin-dark: #18181b;
+  --chatin-dark-card: #202024;
+  --chatin-dark-bubble: #2a2a2e;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   }
   html {
-    @apply font-sans;
+    scroll-behavior: smooth;
   }
+
+  /* Custom Clean Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4ccbe;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b8aea0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📒 Notebook Grid Background
+   ═══════════════════════════════════════════════════════════ */
+.bg-notebook-grid {
+  background-color: #f7f4eb;
+  background-image:
+    linear-gradient(rgba(24, 24, 27, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 24, 27, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ✨ ChaTin Signature Components
+   ═══════════════════════════════════════════════════════════ */
+
+/* Signature Yellow Pill CTA with inner arrow circle */
+.chatin-btn-yellow {
+  background-color: var(--chatin-yellow);
+  color: #18181b;
+  font-weight: 700;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem 0.75rem 1.75rem;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 14px rgba(255, 208, 40, 0.35);
+}
+.chatin-btn-yellow:hover {
+  background-color: var(--chatin-yellow-hover);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 20px rgba(255, 208, 40, 0.45);
+}
+.chatin-btn-yellow:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Dark Pill Badge */
+.chatin-dark-pill {
+  background-color: #18181b;
+  color: #ffffff;
+  border-radius: 9999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+.chatin-dark-pill:hover {
+  background-color: #27272a;
+  transform: translateY(-1px);
+}
+
+/* Pastel Cards */
+.card-pastel-pink {
+  background-color: #fbcfe8;
+  border-radius: 1.75rem;
+  padding: 1.5rem;
+  color: #18181b;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-pastel-pink:hover {
+  transform: translateY(-4px) rotate(-0.5deg);
+  box-shadow: 0 12px 28px -6px rgba(244, 114, 182, 0.3);
+}
+
+.card-pastel-green {
+  background-color: #34d399;
+  border-radius: 1.75rem;
+  padding: 1.5rem;
+  color: #18181b;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-pastel-green:hover {
+  transform: translateY(-4px) rotate(0.5deg);
+  box-shadow: 0 12px 28px -6px rgba(52, 211, 153, 0.3);
+}
+
+.card-pastel-yellow {
+  background-color: #fef08a;
+  border-radius: 1.75rem;
+  padding: 1.5rem;
+  color: #18181b;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-pastel-yellow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -6px rgba(254, 240, 138, 0.4);
+}
+
+/* Postage Stamp / Sticker Border */
+.stamp-card {
+  background: #ffffff;
+  border: 2px dashed #18181b;
+  border-radius: 1rem;
+  padding: 1rem;
+  position: relative;
+  box-shadow: 3px 3px 0px rgba(24, 24, 27, 0.08);
+}
+
+/* Chat Screen Styling */
+.dark-chat-container {
+  background-color: #18181b;
+  color: #f4f4f5;
+  border-radius: 2rem;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.25);
+}
+
+.chat-bubble-theirs {
+  background-color: #27272a;
+  color: #f4f4f5;
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+}
+
+.chat-bubble-mine {
+  background-color: #ffffff;
+  color: #18181b;
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Shimmer Skeleton */
+.skeleton-warm {
+  background: linear-gradient(90deg, #ede7db 25%, #f7f3ea 50%, #ede7db 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 1rem;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+
+.animate-float-gentle {
+  animation: float-gentle 4s ease-in-out infinite;
 }

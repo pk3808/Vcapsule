@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "./AuthModal";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MessageSquare, User, LogOut } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { User, LogOut, ArrowRight } from "lucide-react";
 
 export function Navbar() {
   const { user, mounted, logout } = useAuth();
@@ -15,61 +14,76 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto max-w-6xl px-4 flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2 transition-opacity hover:opacity-80">
-            <div className="bg-primary/10 p-2 rounded-xl">
-              <MessageSquare className="h-6 w-6 text-primary" />
+      <header className="sticky top-0 z-50 w-full bg-[#f7f4eb]/90 backdrop-blur-md border-b border-black/[0.08]">
+        {/* Full width stretching from extreme left to extreme right corners */}
+        <div className="w-full px-4 sm:px-8 md:px-12 flex h-16 items-center justify-between">
+          
+          {/* Logo Badge (ChaTin style) at far left corner */}
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-sm group-hover:scale-105 transition-transform duration-200">
+              <span className="text-[#ffd028] text-sm font-black">✦</span>
+              <span className="font-bold text-sm tracking-tight text-white">VibeChat</span>
             </div>
-            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              VibeChat
-            </span>
           </Link>
 
-          <nav className="flex items-center gap-4">
+          {/* Right Navigation at far right corner */}
+          <nav className="flex items-center gap-3">
             {!mounted ? (
-              <div className="h-10 w-10"></div>
+              <div className="h-10 w-24 rounded-full skeleton-warm" />
             ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors p-0 outline-none flex items-center justify-center overflow-hidden">
-                  <Avatar className="h-full w-full">
-                    <AvatarImage src={user.avatar} alt={user.name || "User"} />
-                    <AvatarFallback className="bg-primary/5 text-primary font-medium">
-                      {(user.name || user.email || "U").charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/profile" className="flex w-full items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-black/10 hover:border-black text-xs font-bold shadow-sm transition-all hover:scale-105"
+                >
+                  <span>My Spaces</span>
+                </Link>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="relative h-10 w-10 rounded-full p-0 outline-none flex items-center justify-center overflow-hidden border-2 border-[#18181b] hover:scale-105 transition-transform shadow-[2px_2px_0px_#18181b]">
+                    <Avatar className="h-full w-full">
+                      <AvatarImage src={user.avatar} alt={user.name || "User"} />
+                      <AvatarFallback className="bg-[#ffd028] text-black font-bold text-sm">
+                        {(user.name || user.email || "U").charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-white rounded-2xl border-2 border-[#18181b] shadow-[4px_4px_0px_#18181b] p-2" align="end" forceMount>
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="font-normal px-2 py-1.5">
+                        <div className="flex flex-col space-y-0.5">
+                          <p className="text-sm font-bold text-black">{user.name}</p>
+                          <p className="text-xs text-stone-500 truncate">
+                            {user.email}
+                          </p>
+                        </div>
+                      </DropdownMenuLabel>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator className="bg-stone-200 my-1" />
+                    <DropdownMenuItem asChild className="cursor-pointer rounded-xl hover:bg-stone-100 focus:bg-stone-100 font-medium text-xs">
+                      <Link href="/profile" className="flex w-full items-center py-2 px-2">
+                        <User className="mr-2 h-4 w-4 text-stone-600" />
+                        <span>Profile & Rooms</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-stone-200 my-1" />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer rounded-xl text-red-600 hover:bg-red-50 focus:bg-red-50 font-medium text-xs py-2 px-2">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
-              <Button
+              <button
                 onClick={() => setIsAuthModalOpen(true)}
-                variant="outline"
-                className="rounded-full px-6 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all font-medium"
+                className="bg-[#ffd028] hover:bg-[#fcc200] text-[#18181b] font-bold text-xs sm:text-sm px-4 py-2 sm:px-5 sm:py-2 rounded-full border-2 border-[#18181b] shadow-[2px_2px_0px_#18181b] hover:shadow-[1px_1px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2"
               >
-                Sign In
-              </Button>
+                <span>Sign In</span>
+                <div className="w-5 h-5 rounded-full bg-[#18181b] text-white flex items-center justify-center">
+                  <ArrowRight className="w-3 h-3" />
+                </div>
+              </button>
             )}
           </nav>
         </div>

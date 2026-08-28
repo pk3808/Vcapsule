@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, use } from "react";
+import { useState, useRef, useEffect, use, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -12,36 +12,27 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
-  MoreVertical, Hash, Users, Copy, Check, Share2, Home, User as UserIcon, Square
+  Hash, Users, Copy, Check, Share2, ArrowLeft, MoreHorizontal, Square,
+  ArrowDown, Sparkles, ChevronDown, Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import EmojiPicker from "emoji-picker-react";
 import imageCompression from "browser-image-compression";
 
-const MOCK_MESSAGES = [
-  { id: "1", text: "Welcome to the room!", sender: { name: "System", id: "sys" }, timestamp: new Date(Date.now() - 100000).toISOString() },
-  { id: "2", text: "Hey everyone! 👋", sender: { name: "Alice", id: "usr_alice" }, timestamp: new Date(Date.now() - 80000).toISOString() },
-  { id: "3", text: "Sup Alice, this new chat UI looks so clean.", sender: { name: "Bob", id: "usr_bob" }, timestamp: new Date(Date.now() - 60000).toISOString() },
-];
-
-const MOCK_USERS = [
-  { id: "usr_alice", name: "Alice", isOnline: true },
-  { id: "usr_bob", name: "Bob", isOnline: true },
-  { id: "usr_charlie", name: "Charlie", isOnline: false },
-];
-
 export default function ChatPage({ params }) {
   const unwrappedParams = use(params);
   const roomId = unwrappedParams.id;
-  const { user, rooms, mounted } = useAuth();
+  const { user, mounted } = useAuth();
   const router = useRouter();
 
   const [isReady, setIsReady] = useState(false);
   const [currentRoom, setCurrentRoom] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isCopied, setIsCopied] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const [pendingFile, setPendingFile] = useState(null);
 
@@ -57,6 +48,12 @@ export default function ChatPage({ params }) {
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
   useEffect(() => {
     let isActive = true;
 
@@ -69,54 +66,72 @@ export default function ChatPage({ params }) {
       }
 
       try {
-         // 1. Fetch Room Info
-         const { data: room, error: roomError } = await supabase
-           .from("rooms")
-           .select("*")
-           .eq("id", roomId)
-           .single();
+        // 1. Fetch Room Info
+        const { data: room, error: roomError } = await supabase
+          .from("rooms")
+          .select("*")
+          .eq("id", roomId)
+          .single();
 
-         if (roomError || !room) {
-           console.error("Room not found:", roomError);
-           router.replace("/");
-           return;
-         }
+        if (roomError || !room) {
+          console.error("Room not found:", roomError);
+          router.replace("/");
+          return;
+        }
 
-         if (isActive) setCurrentRoom({ name: room.name, purpose: "A space to chat" });
+        if (isActive) setCurrentRoom({ name: room.name, purpose: "Vibe and chat room" });
 
-         // 2. Fetch Initial Messages
-         const { data: initialMessages, error: msgError } = await supabase
-           .from("messages")
-           .select(`
-             id,
-             content,
-             media_url,
-             media_type,
-             created_at,
-             user_id,
-             profiles (username, avatar_url)
-           `)
-           .eq("room_id", roomId)
-           .order("created_at", { ascending: true });
+        // 2. Fetch Initial Messages
+        const { data: initialMessages, error: msgError } = await supabase
+          .from("messages")
+          .select(`
+            id,
+            content,
+            media_url,
+            media_type,
+            created_at,
+            user_id,
+            profiles (username, avatar_url)
+          `)
+          .eq("room_id", roomId)
+          .order("created_at", { ascending: true });
 
-         if (!msgError && initialMessages && isActive) {
-            const formattedMessages = initialMessages.map(msg => ({
-               id: msg.id,
-               text: msg.content,
-               sender: {
-                 id: msg.user_id,
-                 name: msg.profiles?.username || "Unknown"
-               },
-               timestamp: msg.created_at,
-               attachment: msg.media_url ? { url: msg.media_url, type: msg.media_type, name: "Attachment" } : null
+        if (!msgError && initialMessages && isActive) {
+          const formattedMessages = initialMessages.map(msg => ({
+            id: msg.id,
+            text: msg.content,
+            sender: {
+              id: msg.user_id,
+              name: msg.profiles?.username || "Friend",
+              avatar: msg.profiles?.avatar_url
+            },
+            timestamp: msg.created_at,
+            attachment: msg.media_url ? { url: msg.media_url, type: msg.media_type, name: "Attachment" } : null
+          }));
+          setMessages(formattedMessages);
+        }
+
+        // 3. Fetch Participants
+        const { data: membersData } = await supabase
+          .from("room_members")
+          .select("user_id, profiles (id, username, avatar_url)")
+          .eq("room_id", roomId);
+
+        if (membersData && isActive) {
+          const memberList = membersData
+            .filter(m => m.profiles)
+            .map(m => ({
+              id: m.user_id,
+              name: m.profiles.username || "Member",
+              avatar: m.profiles.avatar_url
             }));
-            setMessages(formattedMessages);
-         }
+          setParticipants(memberList);
+        }
 
-         if (isActive) setIsReady(true);
+        if (isActive) setIsReady(true);
 
       } catch (err) {
-         console.error(err);
+        console.error(err);
       }
     };
 
@@ -143,11 +158,8 @@ export default function ChatPage({ params }) {
         },
         async (payload) => {
           const newMsg = payload.new;
-
-          // Only process messages from others, as we optimistically add our own
           if (newMsg.user_id === user?.id) return;
 
-          // Fetch profile of the sender
           const { data: profile } = await supabase
             .from("profiles")
             .select("username, avatar_url")
@@ -155,14 +167,15 @@ export default function ChatPage({ params }) {
             .single();
 
           const formattedMsg = {
-             id: newMsg.id,
-             text: newMsg.content,
-             sender: {
-               id: newMsg.user_id,
-               name: profile?.username || "Unknown"
-             },
-             timestamp: newMsg.created_at,
-             attachment: newMsg.media_url ? { url: newMsg.media_url, type: newMsg.media_type, name: "Attachment" } : null
+            id: newMsg.id,
+            text: newMsg.content,
+            sender: {
+              id: newMsg.user_id,
+              name: profile?.username || "Friend",
+              avatar: profile?.avatar_url
+            },
+            timestamp: newMsg.created_at,
+            attachment: newMsg.media_url ? { url: newMsg.media_url, type: newMsg.media_type, name: "Attachment" } : null
           };
 
           setMessages(prev => [...prev, formattedMsg]);
@@ -176,10 +189,14 @@ export default function ChatPage({ params }) {
   }, [isReady, roomId, user?.id]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 200);
+  }, []);
 
   const handleFileSelect = (e, type) => {
     const file = e.target.files[0];
@@ -198,31 +215,27 @@ export default function ChatPage({ params }) {
     let fileName = `${Date.now()}_${file.name}`;
 
     if (type === 'image') {
-       try {
-         const options = {
-           maxSizeMB: 0.5,
-           maxWidthOrHeight: 1920,
-           useWebWorker: true
-         };
-         fileToUpload = await imageCompression(file, options);
-         // Ensure correct extension for compressed file if necessary
-         fileName = `${Date.now()}_compressed.jpg`;
-       } catch (err) {
-         console.warn("Image compression failed, using original file", err);
-       }
+      try {
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true
+        };
+        fileToUpload = await imageCompression(file, options);
+        fileName = `${Date.now()}_compressed.jpg`;
+      } catch (err) {
+        console.warn("Image compression failed", err);
+      }
     }
 
     const { data, error } = await supabase.storage
       .from("chat-media")
       .upload(`public/${fileName}`, fileToUpload, {
-         cacheControl: '3600',
-         upsert: false
+        cacheControl: '3600',
+        upsert: false
       });
 
-    if (error) {
-      console.error("Upload failed", error);
-      throw error;
-    }
+    if (error) throw error;
 
     const { data: { publicUrl } } = supabase.storage
       .from("chat-media")
@@ -235,12 +248,11 @@ export default function ChatPage({ params }) {
     e.preventDefault();
     if (!inputValue.trim() && !pendingFile) return;
 
-    // Optimistic UI update
     const optimisticId = Math.random().toString();
     const newMessage = {
       id: optimisticId,
       text: inputValue,
-      sender: { name: user.name, id: user.id },
+      sender: { name: user.name, id: user.id, avatar: user.avatar },
       timestamp: new Date().toISOString(),
       attachment: pendingFile ? { url: pendingFile.url, type: pendingFile.type, name: pendingFile.name, isUploading: true } : null
     };
@@ -253,46 +265,42 @@ export default function ChatPage({ params }) {
     setPendingFile(null);
 
     try {
-       let mediaUrl = null;
-       let mediaType = null;
+      let mediaUrl = null;
+      let mediaType = null;
 
-       if (currentFile) {
-          mediaUrl = await uploadMedia(currentFile.file, currentFile.type);
-          mediaType = currentFile.type;
+      if (currentFile) {
+        mediaUrl = await uploadMedia(currentFile.file, currentFile.type);
+        mediaType = currentFile.type;
 
-          // Update optimistic UI to remove loading state and set real URL
-          setMessages(prev => prev.map(m => m.id === optimisticId ? {
-             ...m,
-             attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
-          } : m));
-       }
+        setMessages(prev => prev.map(m => m.id === optimisticId ? {
+          ...m,
+          attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
+        } : m));
+      }
 
-       // Insert into Supabase
-       const { data, error } = await supabase
-         .from('messages')
-         .insert([
-           {
-             room_id: roomId,
-             user_id: user.id,
-             content: currentInput,
-             media_url: mediaUrl,
-             media_type: mediaType
-           }
-         ])
-         .select()
-         .single();
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([
+          {
+            room_id: roomId,
+            user_id: user.id,
+            content: currentInput,
+            media_url: mediaUrl,
+            media_type: mediaType
+          }
+        ])
+        .select()
+        .single();
 
-       if (error) {
-          console.error("Failed to send message:", error);
-          // Revert optimistic update on error
-          setMessages(prev => prev.filter(m => m.id !== optimisticId));
-       } else if (data) {
-          // Update the optimistic ID with the real database ID
-          setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
-       }
+      if (error) {
+        console.error("Failed to send:", error);
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      } else if (data) {
+        setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
+      }
     } catch (err) {
-       console.error("Failed to send message:", err);
-       setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      console.error("Failed to send message:", err);
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
     }
   };
 
@@ -313,48 +321,45 @@ export default function ChatPage({ params }) {
         const optimisticId = Math.random().toString();
         const localUrl = URL.createObjectURL(audioBlob);
 
-        // Optimistic UI
         const newMessage = {
           id: optimisticId,
           text: "",
-          sender: { name: user.name, id: user.id },
+          sender: { name: user.name, id: user.id, avatar: user.avatar },
           timestamp: new Date().toISOString(),
           attachment: { url: localUrl, type: "audio", name: "Voice Note", isUploading: true }
         };
         setMessages(prev => [...prev, newMessage]);
-
-        // Cleanup stream early
         stream.getTracks().forEach(track => track.stop());
 
         try {
-           const mediaUrl = await uploadMedia(audioFile, 'audio');
+          const mediaUrl = await uploadMedia(audioFile, 'audio');
 
-           setMessages(prev => prev.map(m => m.id === optimisticId ? {
-             ...m,
-             attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
-           } : m));
+          setMessages(prev => prev.map(m => m.id === optimisticId ? {
+            ...m,
+            attachment: { ...m.attachment, url: mediaUrl, isUploading: false }
+          } : m));
 
-           const { data, error } = await supabase
-             .from('messages')
-             .insert([
-               {
-                 room_id: roomId,
-                 user_id: user.id,
-                 content: "",
-                 media_url: mediaUrl,
-                 media_type: 'audio'
-               }
-             ])
-             .select()
-             .single();
+          const { data, error } = await supabase
+            .from('messages')
+            .insert([
+              {
+                room_id: roomId,
+                user_id: user.id,
+                content: "",
+                media_url: mediaUrl,
+                media_type: 'audio'
+              }
+            ])
+            .select()
+            .single();
 
-           if (error) throw error;
-           if (data) {
-             setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
-           }
+          if (error) throw error;
+          if (data) {
+            setMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, id: data.id } : m));
+          }
         } catch (err) {
-           console.error("Failed to send voice note:", err);
-           setMessages(prev => prev.filter(m => m.id !== optimisticId));
+          console.error("Failed to send voice note:", err);
+          setMessages(prev => prev.filter(m => m.id !== optimisticId));
         }
       };
 
@@ -368,7 +373,7 @@ export default function ChatPage({ params }) {
 
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("Microphone access denied or unavailable.");
+      alert("Microphone access denied.");
     }
   };
 
@@ -387,13 +392,12 @@ export default function ChatPage({ params }) {
   };
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/chat/${roomId}${currentRoom.passcode ? `?passcode=${currentRoom.passcode}` : ''}`;
+    const link = `${window.location.origin}/chat/${roomId}`;
     navigator.clipboard.writeText(link);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -402,8 +406,9 @@ export default function ChatPage({ params }) {
 
   if (!mounted || !isReady) {
     return (
-      <div className="flex-1 bg-background flex items-center justify-center min-h-[50vh]">
-         <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="w-12 h-12 rounded-full border-4 border-black border-t-[#ffd028] animate-spin mb-4" />
+        <p className="font-bold text-sm text-[#18181b]">Loading the vibe space...</p>
       </div>
     );
   }
@@ -411,315 +416,264 @@ export default function ChatPage({ params }) {
   if (!user) return null;
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-background">
-      {/* Main Chat Area */}
-      <div className="flex flex-1 flex-col min-w-0">
-        {/* Chat Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/50 backdrop-blur-sm z-10">
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1 border-r border-border/50 pr-4 mr-2">
-              <Tooltip>
-                <TooltipTrigger className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <Link href="/" className="flex items-center justify-center w-full h-full">
-                    <Home className="w-4 h-4" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Home</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <Link href="/profile" className="flex items-center justify-center w-full h-full">
-                    <UserIcon className="w-4 h-4" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Profile</TooltipContent>
-              </Tooltip>
+    <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 h-[calc(100vh-4rem)]">
+      
+      {/* ── SCREEN 3 TOP BAR (ChaTin Style) ───────────────── */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        {/* Back / Navigation button */}
+        <Link href="/" className="w-10 h-10 rounded-full bg-[#18181b] hover:bg-black text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95">
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+
+        {/* Center Pill Selector (e.g. "ChaTin 1.4 ∨") */}
+        <div className="bg-white border-2 border-[#18181b] rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[2px_2px_0px_#18181b] text-xs sm:text-sm font-bold text-[#18181b]">
+          <span>{currentRoom?.name || "Vibe Space"}</span>
+          <ChevronDown className="w-3.5 h-3.5 text-stone-500" />
+        </div>
+
+        {/* Right Action button (Invite / Share) */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="w-10 h-10 rounded-full bg-[#18181b] hover:bg-black text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95">
+              <Share2 className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 p-3 bg-white border-2 border-[#18181b] rounded-2xl shadow-[4px_4px_0px_#18181b]">
+            <h4 className="font-bold text-xs mb-2">Share Room Link</h4>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={typeof window !== 'undefined' ? `${window.location.origin}/chat/${roomId}` : ''}
+                className="h-8 bg-stone-100 border border-stone-300 text-xs rounded-xl"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="bg-[#ffd028] text-black font-bold px-3 rounded-xl border border-black text-xs flex items-center justify-center shadow-sm"
+              >
+                {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Hash className="w-5 h-5 text-primary" />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* ── ROOM TITLE HEADING ─────────────────────────────── */}
+      <div className="mb-3 px-1">
+        <h1 className="text-xl sm:text-2xl font-black text-[#18181b] tracking-tight">
+          {currentRoom?.name}
+        </h1>
+      </div>
+
+      {/* ── SCREEN 3: FLOATING DARK CHAT CANVAS ────────────── */}
+      <div className="flex-1 bg-[#18181b] border-2 border-black rounded-[2rem] p-4 sm:p-5 shadow-[6px_6px_0px_rgba(24,24,27,0.15)] flex flex-col overflow-hidden min-h-0 relative">
+        
+        {/* Messages Scroll Area */}
+        <div className="flex-1 overflow-hidden relative">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-6 text-stone-400">
+              <div className="w-16 h-16 rounded-2xl bg-[#27272a] border border-stone-700 flex items-center justify-center text-3xl mb-3 shadow-inner">
+                👋
               </div>
-              <div>
-                <h2 className="font-semibold text-foreground leading-tight">{currentRoom.name}</h2>
-                <p className="text-xs text-muted-foreground">{currentRoom.purpose}</p>
-              </div>
+              <h3 className="font-bold text-base text-white mb-1">Welcome to {currentRoom?.name}!</h3>
+              <p className="text-xs text-stone-400 max-w-xs">
+                No messages yet. Send the first text, voice note, or photo to get the vibe rolling.
+              </p>
             </div>
-          </div>
+          ) : (
+            <ScrollArea className="h-full pr-3" ref={scrollRef} onScrollCapture={handleScroll}>
+              <div className="flex flex-col gap-4 py-2">
+                {messages.map((msg, i) => {
+                  const isMe = msg.sender.id === user.id;
 
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger className="flex gap-2 rounded-full border border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors h-9 px-3 items-center text-sm font-medium">
-                <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Invite</span>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-4 bg-card border-border/50 shadow-xl rounded-xl">
-                <h4 className="font-medium mb-2">Share Invite Link</h4>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={`${window.location.origin}/chat/${roomId}`}
-                    className="h-9 bg-muted/50 border-border/50 text-xs"
-                  />
-                  <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleCopyLink}>
-                    {isCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </Button>
-                </div>
-                {currentRoom.passcode && (
-                  <div className="mt-3 flex justify-between items-center bg-primary/5 p-2 rounded-md border border-primary/10">
-                    <span className="text-xs text-muted-foreground">Passcode:</span>
-                    <code className="text-sm font-mono font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">{currentRoom.passcode}</code>
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
-        </header>
-
-        {/* Messages */}
-        <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollRef}>
-          <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-            <AnimatePresence>
-              {messages.map((msg, i) => {
-                const isMe = msg.sender.id === user.id;
-                const isSystem = msg.sender.id === "sys";
-
-                if (isSystem) {
                   return (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={msg.id}
-                      className="flex justify-center my-4"
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex flex-col ${isMe ? "items-end" : "items-start"} max-w-[85%] sm:max-w-[75%] ${isMe ? "ml-auto" : "mr-auto"}`}
                     >
-                      <span className="text-xs font-medium px-3 py-1 bg-muted rounded-full text-muted-foreground">
-                        {msg.text}
-                      </span>
-                    </motion.div>
-                  );
-                }
+                      {/* Sender tag for others */}
+                      {!isMe && (
+                        <div className="flex items-center gap-1.5 mb-1.5 ml-1">
+                          <span className="text-[10px] text-[#ffd028] font-black">✦</span>
+                          <span className="text-xs font-bold text-stone-300">{msg.sender.name}</span>
+                        </div>
+                      )}
 
-                return (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    key={msg.id}
-                    className={`flex gap-3 max-w-[80%] ${isMe ? "ml-auto flex-row-reverse" : ""}`}
-                  >
-                    {!isMe && (
-                      <Avatar className="w-8 h-8 mt-1 border border-border/50 shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                          {msg.sender.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div className={`flex flex-col max-w-full ${isMe ? "items-end" : "items-start"}`}>
-                      {!isMe && <span className="text-xs text-muted-foreground ml-1 mb-1">{msg.sender.name}</span>}
-                      <div className={`px-4 py-2.5 rounded-2xl shadow-sm overflow-hidden ${
-                        isMe
-                          ? "bg-primary text-primary-foreground rounded-tr-sm"
-                          : "bg-card border border-border/40 text-card-foreground rounded-tl-sm"
-                      }`}>
+                      {/* Bubble */}
+                      <div
+                        className={`p-3.5 sm:p-4 text-sm ${
+                          isMe
+                            ? "bg-white text-[#18181b] font-medium rounded-2xl rounded-tr-sm shadow-md"
+                            : "bg-[#27272a] text-stone-100 rounded-2xl rounded-tl-sm border border-stone-800"
+                        }`}
+                      >
+                        {/* Attachments */}
                         {msg.attachment && (
-                          <div className="mb-2 rounded-lg overflow-hidden">
+                          <div className="mb-2 rounded-xl overflow-hidden">
                             {msg.attachment.type === 'image' && (
-                              <img src={msg.attachment.url} alt="Attachment" className="max-w-xs sm:max-w-sm rounded-md" />
+                              <img src={msg.attachment.url} alt="Attachment" className="max-w-xs sm:max-w-sm rounded-lg object-cover" />
                             )}
                             {msg.attachment.type === 'video' && (
-                              <video src={msg.attachment.url} controls className="max-w-xs sm:max-w-sm rounded-md" />
+                              <video src={msg.attachment.url} controls className="max-w-xs sm:max-w-sm rounded-lg" />
                             )}
                             {msg.attachment.type === 'file' && (
-                              <a href={msg.attachment.url} download={msg.attachment.name} className="flex items-center gap-2 p-2 bg-background/20 rounded-md hover:bg-background/40 transition-colors text-xs font-medium">
-                                <Paperclip className="w-4 h-4" />
+                              <a href={msg.attachment.url} download={msg.attachment.name} className="flex items-center gap-2 p-2 bg-black/10 rounded-md text-xs font-bold underline">
+                                <Paperclip className="w-3.5 h-3.5" />
                                 {msg.attachment.name}
                               </a>
                             )}
                             {msg.attachment.type === 'audio' && (
-                              <div className="flex items-center gap-2 p-2 bg-background/20 rounded-md">
-                                <Mic className="w-4 h-4 shrink-0" />
-                                <audio src={msg.attachment.url} controls className="h-8 w-48 sm:w-64" />
+                              <div className="flex items-center gap-2 p-2 bg-black/10 rounded-lg">
+                                <Mic className="w-4 h-4 text-amber-500" />
+                                <audio src={msg.attachment.url} controls className="h-8 w-44 sm:w-56" />
                               </div>
                             )}
                           </div>
                         )}
-                        {msg.text && <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
+
+                        {msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
                       </div>
-                      <span className="text-[10px] text-muted-foreground mt-1 opacity-70">
+
+                      {/* Time */}
+                      <span className="text-[10px] text-stone-500 mt-1 px-1">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </ScrollArea>
-
-        {/* Chat Input */}
-        <div className="p-4 bg-background border-t border-border/50">
-          <div className="max-w-4xl mx-auto">
-            <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'file')} />
-            <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'image')} />
-            <input type="file" accept="video/*" ref={videoInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'video')} />
-
-            <AnimatePresence>
-              {pendingFile && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 'auto' }}
-                  exit={{ opacity: 0, y: 10, height: 0 }}
-                  className="mb-3 p-3 bg-muted/50 rounded-xl border border-border/50 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-10 h-10 rounded bg-background flex items-center justify-center shrink-0">
-                      {pendingFile.type === 'image' && <ImageIcon className="w-5 h-5 text-primary" />}
-                      {pendingFile.type === 'video' && <Video className="w-5 h-5 text-primary" />}
-                      {pendingFile.type === 'file' && <Paperclip className="w-5 h-5 text-primary" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{pendingFile.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">Ready to send</p>
-                    </div>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={clearPendingFile} className="shrink-0 text-muted-foreground hover:text-destructive">
-                    <span className="sr-only">Remove attachment</span>
-                    ✕
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <form
-              onSubmit={handleSendMessage}
-              className="flex items-end gap-2 bg-card rounded-3xl border border-border/50 p-2 shadow-sm focus-within:ring-1 focus-within:ring-primary/30 focus-within:border-primary/30 transition-all"
-            >
-              <div className="flex gap-1 ml-1 pb-1">
-                <Tooltip>
-                  <TooltipTrigger type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                    <Paperclip className="w-4 h-4" />
-                  </TooltipTrigger>
-                  <TooltipContent>Attach file</TooltipContent>
-                </Tooltip>
-
-                <Popover>
-                  <PopoverTrigger className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                    <ImageIcon className="w-4 h-4" />
-                  </PopoverTrigger>
-                  <PopoverContent side="top" align="start" className="w-auto p-2 flex gap-2">
-                     <Button type="button" onClick={() => imageInputRef.current?.click()} variant="outline" size="sm" className="flex gap-2"><ImageIcon className="w-4 h-4"/> Image</Button>
-                     <Button type="button" onClick={() => videoInputRef.current?.click()} variant="outline" size="sm" className="flex gap-2"><Video className="w-4 h-4"/> Video</Button>
-                  </PopoverContent>
-                </Popover>
+                    </motion.div>
+                  );
+                })}
               </div>
+            </ScrollArea>
+          )}
 
+          {/* Floating Scroll-to-bottom */}
+          <AnimatePresence>
+            {showScrollBtn && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onClick={scrollToBottom}
+                className="absolute bottom-3 right-4 w-9 h-9 rounded-full bg-[#ffd028] text-black font-bold flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-transform z-20 border border-black"
+              >
+                <ArrowDown className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ── RECORDING PILL (ChaTin "Stop generate" style) ─── */}
+        {isRecording && (
+          <div className="flex justify-center my-2">
+            <button
+              onClick={stopRecording}
+              className="bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold text-xs px-4 py-2 rounded-full flex items-center gap-2 shadow-md border border-black animate-pulse"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+              <span>Stop & Send ({formatTime(recordingTime)})</span>
+            </button>
+          </div>
+        )}
+
+        {/* ── INPUT BAR (ChaTin White Pill with Green Plus) ── */}
+        <div className="pt-3">
+          <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'file')} />
+          <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'image')} />
+          <input type="file" accept="video/*" ref={videoInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'video')} />
+
+          {/* File selected preview */}
+          {pendingFile && (
+            <div className="mb-2 p-2 bg-[#27272a] border border-stone-700 rounded-xl flex items-center justify-between text-xs text-stone-200">
+              <span className="truncate max-w-[200px]">{pendingFile.name}</span>
+              <button onClick={clearPendingFile} className="text-red-400 font-bold ml-2">✕</button>
+            </div>
+          )}
+
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+            {/* White Pill Input Container */}
+            <div className="flex-1 bg-white rounded-full flex items-center px-4 py-1.5 shadow-sm border border-stone-200 focus-within:ring-2 focus-within:ring-[#ffd028]">
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder={`Message ${currentRoom.name}...`}
-                className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent px-2 h-10 text-sm"
+                placeholder="Type here..."
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent text-black text-sm px-0 h-9 placeholder:text-stone-400"
               />
 
-            <div className="flex gap-1 pr-1 pb-1">
+              {/* Emoji Picker Popover */}
               <Popover>
-                <PopoverTrigger className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer" type="button" title="Emoji">
-                  <Smile className="w-4 h-4" />
+                <PopoverTrigger asChild>
+                  <button type="button" className="text-stone-400 hover:text-stone-700 transition-colors p-1">
+                    <Smile className="w-5 h-5" />
+                  </button>
                 </PopoverTrigger>
-                <PopoverContent side="top" align="end" className="w-full p-0 border-none shadow-none bg-transparent">
+                <PopoverContent side="top" align="end" className="p-0 border-0 shadow-none bg-transparent">
                   <EmojiPicker
                     onEmojiClick={(emojiData) => setInputValue(prev => prev + emojiData.emoji)}
                     theme="light"
                   />
                 </PopoverContent>
               </Popover>
-              {isRecording ? (
-                <div className="flex items-center bg-destructive/10 text-destructive rounded-full px-3 h-8 animate-pulse">
-                  <Square className="w-4 h-4 mr-2" />
-                  <span className="text-xs font-medium">{formatTime(recordingTime)}</span>
-                </div>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger
-                    type="button"
-                    className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                    onPointerDown={startRecording}
-                  >
-                    <Mic className="w-4 h-4" />
-                  </TooltipTrigger>
-                  <TooltipContent>Hold or click to record</TooltipContent>
-                </Tooltip>
-              )}
-              {isRecording && (
-                <Button
+            </div>
+
+            {/* Mint Green Plus Button (Attachment Menu from reference) */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
                   type="button"
-                  size="sm"
-                  className="h-8 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-transform active:scale-95"
-                  onClick={stopRecording}
+                  className="w-10 h-10 rounded-full bg-[#34d399] hover:bg-[#22c55e] text-[#18181b] font-black flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0"
                 >
-                  Stop & Send
-                </Button>
-              )}
-              <Button
+                  <Plus className="w-5 h-5 stroke-[3]" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-48 p-2 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#18181b]">
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
+                  Photo / Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => videoInputRef.current?.click()}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                >
+                  <Video className="w-4 h-4 text-purple-600" />
+                  Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                >
+                  <Paperclip className="w-4 h-4 text-amber-600" />
+                  Document
+                </button>
+              </PopoverContent>
+            </Popover>
+
+            {/* Mic / Send Button */}
+            {!inputValue.trim() && !pendingFile ? (
+              <button
+                type="button"
+                onPointerDown={startRecording}
+                className="w-10 h-10 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-stone-700"
+                title="Hold to record voice"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
                 type="submit"
-                size="icon"
-                disabled={!inputValue.trim() && !pendingFile}
-                className="w-8 h-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-transform active:scale-95 disabled:opacity-50"
+                className="w-10 h-10 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-black"
               >
                 <Send className="w-4 h-4 ml-0.5" />
-              </Button>
-            </div>
-            </form>
-          </div>
+              </button>
+            )}
+          </form>
         </div>
-      </div>
 
-      {/* Sidebar - Participants */}
-      <div className="hidden lg:flex flex-col w-64 border-l border-border/50 bg-card/30">
-        <div className="p-4 border-b border-border/50 flex items-center gap-2">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <h3 className="font-medium text-sm">Participants — {MOCK_USERS.length + 1}</h3>
-        </div>
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Online</p>
-              <div className="space-y-3">
-                {/* Me */}
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-primary/20 text-primary">{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
-                  </div>
-                  <span className="text-sm font-medium">{user.name} (You)</span>
-                </div>
-                {/* Others */}
-                {MOCK_USERS.filter(u => u.isOnline).map(u => (
-                  <div key={u.id} className="flex items-center gap-3">
-                    <div className="relative">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-muted text-muted-foreground">{u.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full"></span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{u.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Offline</p>
-              <div className="space-y-3">
-                {MOCK_USERS.filter(u => !u.isOnline).map(u => (
-                  <div key={u.id} className="flex items-center gap-3 opacity-50">
-                    <Avatar className="w-8 h-8 grayscale">
-                      <AvatarFallback className="bg-muted text-muted-foreground">{u.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">{u.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
       </div>
     </div>
   );

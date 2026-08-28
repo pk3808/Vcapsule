@@ -4,17 +4,9 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Hash, LogOut, Settings, User } from "lucide-react";
+import { Hash, LogOut, Settings, User, MessageSquare, ArrowRight, Sparkles, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-
-const MOCK_ROOMS = [
-  { id: "rm_1", name: "Late Night Beats", purpose: "Sharing cool tracks and vibes", members: 12 },
-  { id: "rm_2", name: "Next.js Devs", purpose: "Discussing App Router & Tailwind", members: 156 },
-  { id: "rm_3", name: "Book Club", purpose: "Sci-Fi and Fantasy reads", members: 8 },
-];
 
 export default function ProfilePage() {
   const { user, rooms, mounted, logout } = useAuth();
@@ -28,119 +20,134 @@ export default function ProfilePage() {
 
   if (!mounted || !user) return null;
 
+  const roomCount = Array.isArray(rooms) ? rooms.length : 0;
+
   return (
-    <div className="flex-1 bg-background p-4 sm:p-8 overflow-y-auto">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="flex-1 px-4 py-8 sm:py-12 max-w-4xl mx-auto w-full">
+      
+      {/* ── PROFILE HEADER (ChaTin Stamp & Pill Style) ───── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border-2 border-[#18181b] rounded-3xl p-6 sm:p-8 shadow-[5px_5px_0px_#18181b] mb-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden"
+      >
+        {/* Decorative corner tag */}
+        <div className="absolute top-4 right-4 bg-[#ffd028] text-black font-extrabold text-[10px] uppercase px-3 py-1 rounded-full border border-black shadow-[1px_1px_0px_#18181b]">
+          Viber
+        </div>
 
-        {/* Profile Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row items-center sm:items-start gap-6 bg-card p-6 sm:p-8 rounded-3xl border border-border/50 shadow-sm relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-primary/10 to-transparent"></div>
-
-          <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-background shadow-md z-10 overflow-hidden">
+        {/* User Avatar with border */}
+        <div className="relative">
+          <Avatar className="w-24 h-24 sm:w-28 sm:h-28 border-2 border-[#18181b] shadow-[3px_3px_0px_#18181b]">
             <AvatarImage src={user.avatar} alt={user.name || "User"} className="object-cover" />
-            <AvatarFallback className="bg-primary/5 text-primary text-4xl sm:text-5xl font-medium">
+            <AvatarFallback className="bg-[#fbcfe8] text-[#18181b] text-3xl font-black">
               {(user.name || user.email || "U").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
+        </div>
 
-          <div className="flex-1 text-center sm:text-left z-10 mt-2">
-            <h1 className="text-3xl font-bold tracking-tight mb-1">{user.name || "User"}</h1>
-            <p className="text-muted-foreground flex items-center justify-center sm:justify-start gap-2 mb-4">
-              <User className="w-4 h-4" />
-              {user.email || "No email provided"}
+        <div className="flex-1 text-center sm:text-left">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#18181b] tracking-tight mb-1">
+            {user.name || "Vibe Explorer"}
+          </h1>
+          <p className="text-stone-500 text-xs sm:text-sm font-medium mb-4 flex items-center justify-center sm:justify-start gap-1">
+            <User className="w-3.5 h-3.5" />
+            {user.email || "No email"}
+          </p>
+
+          {/* Stat Badges */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-5">
+            <span className="bg-[#18181b] text-white text-xs font-bold px-3.5 py-1.5 rounded-full">
+              {roomCount} Spaces Created
+            </span>
+            <span className="bg-[#34d399] text-black text-xs font-bold px-3.5 py-1.5 rounded-full border border-black">
+              ✦ Online Now
+            </span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+            <Link href="/">
+              <button className="bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full border-2 border-black shadow-[2px_2px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#18181b] transition-all flex items-center gap-1.5">
+                <Plus className="w-4 h-4" />
+                <span>Create New Space</span>
+              </button>
+            </Link>
+
+            <button
+              onClick={() => { logout(); router.push("/"); }}
+              className="bg-stone-100 hover:bg-red-50 text-red-600 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-full border-2 border-stone-300 hover:border-red-400 transition-all flex items-center gap-1.5"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Log out</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── SPACES SECTION ────────────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-2xl font-black text-[#18181b]">Your Spaces</h2>
+          <span className="text-xs font-bold text-stone-500">{roomCount} total</span>
+        </div>
+
+        {roomCount === 0 ? (
+          <div className="bg-white border-2 border-dashed border-[#18181b] rounded-3xl p-8 sm:p-12 text-center shadow-[4px_4px_0px_rgba(24,24,27,0.08)]">
+            <div className="w-16 h-16 rounded-2xl bg-[#ffd028] border-2 border-black flex items-center justify-center text-2xl mx-auto mb-3 shadow-[2px_2px_0px_#18181b]">
+              🚀
+            </div>
+            <h3 className="text-lg font-bold text-[#18181b] mb-1">No spaces created yet</h3>
+            <p className="text-xs text-stone-500 max-w-xs mx-auto mb-6">
+              Create a room, invite your friends, and start chatting in seconds!
             </p>
-            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-              <Button variant="outline" size="sm" className="rounded-full">
-                <Settings className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 border-transparent shadow-none"
-                onClick={() => { logout(); router.push("/"); }}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Groups / Rooms */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div className="flex items-center justify-between mb-6 px-2">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Your Spaces</h2>
-              <p className="text-muted-foreground text-sm">Rooms you are currently a part of.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Show locally created rooms first */}
-            {(Array.isArray(rooms) ? rooms : []).map((room) => (
-              <Link href={`/chat/${room.id}`} key={room.id}>
-                <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full group bg-card shadow-sm hover:shadow-md border-primary/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <Hash className="w-5 h-5 text-primary group-hover:text-primary-foreground" />
-                      </div>
-                      <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        {room.members} members (Owner)
-                      </span>
-                    </div>
-                    <CardTitle className="mt-4 text-lg">{room.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">{room.purpose}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-
-            {/* Then show mock rooms */}
-            {MOCK_ROOMS.map((room) => (
-              <Link href={`/chat/${room.id}`} key={room.id}>
-                <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full group bg-card shadow-sm hover:shadow-md">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <Hash className="w-5 h-5 text-primary group-hover:text-primary-foreground" />
-                      </div>
-                      <span className="text-xs font-medium bg-muted px-2 py-1 rounded-full text-muted-foreground">
-                        {room.members} members
-                      </span>
-                    </div>
-                    <CardTitle className="mt-4 text-lg">{room.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">{room.purpose}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-
-            {/* Create New Room Card */}
-            <Link href="/" className="block h-full">
-              <Card className="border-dashed border-2 bg-transparent hover:bg-primary/5 hover:border-primary/50 transition-colors cursor-pointer h-full min-h-[160px] flex items-center justify-center">
-                <CardContent className="flex flex-col items-center justify-center pt-6 pb-6 text-muted-foreground hover:text-primary transition-colors">
-                  <div className="p-3 bg-muted rounded-full mb-3">
-                    <Hash className="w-6 h-6" />
-                  </div>
-                  <p className="font-medium">Join or Create Room</p>
-                  <p className="text-xs mt-1 opacity-70">Head to home to start</p>
-                </CardContent>
-              </Card>
+            <Link href="/">
+              <button className="bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold text-xs sm:text-sm px-6 py-3 rounded-full border-2 border-black shadow-[3px_3px_0px_#18181b] transition-all">
+                Create your first space
+              </button>
             </Link>
           </div>
-        </motion.div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {rooms.map((room, i) => {
+              // Alternate pastel background colors
+              const bgClass = i % 2 === 0 ? "bg-[#fbcfe8]" : "bg-[#34d399]";
 
+              return (
+                <Link href={`/chat/${room.id}`} key={room.id}>
+                  <div className={`${bgClass} border-2 border-[#18181b] rounded-3xl p-5 shadow-[4px_4px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#18181b] transition-all flex flex-col justify-between min-h-[160px] group`}>
+                    <div className="flex items-start justify-between">
+                      <div className="w-8 h-8 rounded-full bg-white border border-black flex items-center justify-center text-xs font-black">
+                        #
+                      </div>
+                      <span className="text-[10px] font-black bg-black text-white px-2.5 py-0.5 rounded-full">
+                        Owner
+                      </span>
+                    </div>
+
+                    <div className="mt-4">
+                      <h4 className="font-black text-base text-[#18181b] leading-tight line-clamp-2">{room.name}</h4>
+                      <p className="text-[11px] font-bold text-black/60 mt-1">Tap to enter →</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+
+            {/* Create Room Box */}
+            <Link href="/">
+              <div className="bg-white border-2 border-dashed border-[#18181b] rounded-3xl p-5 shadow-[3px_3px_0px_#18181b] hover:bg-amber-50/50 transition-all flex flex-col items-center justify-center text-center min-h-[160px] cursor-pointer">
+                <div className="w-10 h-10 rounded-full bg-[#ffd028] border border-black flex items-center justify-center text-lg mb-2 shadow-sm">
+                  +
+                </div>
+                <span className="font-bold text-sm text-[#18181b]">Create Space</span>
+                <span className="text-[10px] text-stone-500">Start new vibe</span>
+              </div>
+            </Link>
+          </div>
+        )}
       </div>
+
     </div>
   );
 }

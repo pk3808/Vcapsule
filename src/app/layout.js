@@ -1,14 +1,10 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -16,17 +12,17 @@ import { Navbar } from "@/components/shared/Navbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const metadata = {
-  title: "VibeChat",
-  description: "A premium chat experience.",
+  title: "VibeChat — The Fun Concept Chat App",
+  description: "Explore knowledge and vibe with AI and friends in a playful, aesthetic space.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-notebook-grid text-foreground selection:bg-yellow-300 selection:text-black">
         <AuthProvider>
           <TooltipProvider>
             <Navbar />
