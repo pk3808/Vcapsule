@@ -41,17 +41,17 @@ export default function ProfilePage() {
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-primary/10 to-transparent"></div>
 
           <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-background shadow-md z-10 overflow-hidden">
-            <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
+            <AvatarImage src={user.avatar} alt={user.name || "User"} className="object-cover" />
             <AvatarFallback className="bg-primary/5 text-primary text-4xl sm:text-5xl font-medium">
-              {user.name.charAt(0).toUpperCase()}
+              {(user.name || user.email || "U").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex-1 text-center sm:text-left z-10 mt-2">
-            <h1 className="text-3xl font-bold tracking-tight mb-1">{user.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-1">{user.name || "User"}</h1>
             <p className="text-muted-foreground flex items-center justify-center sm:justify-start gap-2 mb-4">
               <User className="w-4 h-4" />
-              {user.email}
+              {user.email || "No email provided"}
             </p>
             <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
               <Button variant="outline" size="sm" className="rounded-full">
@@ -86,7 +86,7 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Show locally created rooms first */}
-            {rooms.map((room) => (
+            {(Array.isArray(rooms) ? rooms : []).map((room) => (
               <Link href={`/chat/${room.id}`} key={room.id}>
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full group bg-card shadow-sm hover:shadow-md border-primary/20">
                   <CardHeader className="pb-3">

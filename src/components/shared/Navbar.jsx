@@ -33,9 +33,9 @@ export function Navbar() {
               <DropdownMenu>
                 <DropdownMenuTrigger className="relative h-10 w-10 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors p-0 outline-none flex items-center justify-center overflow-hidden">
                   <Avatar className="h-full w-full">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarImage src={user.avatar} alt={user.name || "User"} />
                     <AvatarFallback className="bg-primary/5 text-primary font-medium">
-                      {user.name.charAt(0).toUpperCase()}
+                      {(user.name || user.email || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
