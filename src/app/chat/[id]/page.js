@@ -25,6 +25,8 @@ import { VoiceNotePlayer } from "@/components/shared/VoiceNotePlayer";
 import { VoiceCallModal } from "@/components/shared/VoiceCallModal";
 import { AuthModal } from "@/components/shared/AuthModal";
 import { useToast } from "@/components/shared/VibeToast";
+import { FloatingVibeReactions } from "@/components/shared/FloatingVibeReactions";
+import { RoomJukebox } from "@/components/shared/RoomJukebox";
 import { playSendSound, playReceiveSound, playReactionSound } from "@/lib/soundFx";
 
 export default function ChatPage({ params }) {
@@ -1185,6 +1187,9 @@ export default function ChatPage({ params }) {
             </DialogContent>
           </Dialog>
 
+          {/* Room Ambient Jukebox */}
+          <RoomJukebox />
+
           {/* Sound FX Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -1419,8 +1424,11 @@ export default function ChatPage({ params }) {
         {/* ── RIGHT CHAT CANVAS ───────────────────────────────── */}
         <div className="flex-1 h-full flex flex-col bg-[#18181b] border-2 border-black rounded-[1.75rem] sm:rounded-[2rem] p-3 sm:p-4 shadow-[5px_5px_0px_rgba(24,24,27,0.15)] overflow-hidden min-w-0 relative">
           
+          {/* Floating Vibe Reactions & Emoji Emitter */}
+          <FloatingVibeReactions roomId={roomId} user={user} channel={channelRef.current} />
+
           {/* Top Sub-Bar */}
-          <div className="flex items-center justify-between pb-2 mb-1 border-b border-stone-800 shrink-0">
+          <div className="flex items-center justify-between pb-2 mb-1 border-b border-stone-800 shrink-0 relative z-10">
             <div className="flex items-center gap-1.5">
               <span className="text-[#ffd028] text-xs font-black">✦</span>
               <span className="text-xs font-bold text-stone-300 truncate">
@@ -1446,7 +1454,7 @@ export default function ChatPage({ params }) {
               </div>
             ) : (
               <ScrollArea className="h-full pr-3" ref={scrollRef} onScrollCapture={handleScroll}>
-                <div className="flex flex-col gap-3.5 py-2">
+                <div className="flex flex-col gap-4 pt-8 pb-4">
                   {messages.map((msg) => {
                     const isMe = msg.sender.id === user.id;
                     const msgReactions = reactions[msg.id] || {};
@@ -1484,7 +1492,7 @@ export default function ChatPage({ params }) {
                               initial={{ opacity: 0, scale: 0.85, y: 4 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               exit={{ opacity: 0, scale: 0.85, y: 4 }}
-                              className={`absolute -top-7 ${isMe ? 'right-0' : 'left-0'} z-20 bg-white border border-black rounded-full px-1.5 py-0.5 flex items-center gap-0.5 shadow-[2px_2px_0px_#18181b]`}
+                              className={`absolute -top-8 ${isMe ? 'right-0' : 'left-0'} z-30 bg-white border-2 border-black rounded-full px-2 py-0.5 flex items-center gap-1 shadow-[2px_2px_0px_#ffd028]`}
                             >
                               {['👍', '❤️', '🔥', '😂', '😮', '🎉'].map((emoji) => {
                                 const hasReacted = (msgReactions[emoji] || []).includes(user?.id);
