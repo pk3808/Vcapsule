@@ -21,16 +21,14 @@ export function AuthProvider({ children }) {
           .from("profiles")
           .select("*")
           .eq("id", session.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profile) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            name: profile.username,
-            avatar: profile.avatar_url,
-          });
-        }
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          name: profile?.username || session.user.user_metadata?.username || "Friend",
+          avatar: profile?.avatar_url || session.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${session.user.id}`,
+        });
 
         // Fetch user's joined rooms
         const { data: userMemberships } = await supabase
@@ -52,21 +50,19 @@ export function AuthProvider({ children }) {
 
       // 2. Setup auth listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" && session) {
+        if ((event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") && session?.user) {
           const { data: profile } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", session.user.id)
-            .single();
+            .maybeSingle();
 
-          if (profile) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: profile.username,
-              avatar: profile.avatar_url,
-            });
-          }
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: profile?.username || session.user.user_metadata?.username || "Friend",
+            avatar: profile?.avatar_url || session.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${session.user.id}`,
+          });
 
           const { data: userMemberships } = await supabase
             .from("room_members")
@@ -99,27 +95,61 @@ export function AuthProvider({ children }) {
         password,
      });
      if (error) throw error;
+
+     if (data?.user) {
+       const { data: profile } = await supabase
+         .from("profiles")
+         .select("*")
+         .eq("id", data.user.id)
+         .maybeSingle();
+
+       setUser({
+         id: data.user.id,
+         email: data.user.email,
+         name: profile?.username || data.user.user_metadata?.username || "Friend",
+         avatar: profile?.avatar_url || data.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${data.user.id}`,
+       });
+     }
+
      return data;
   };
 
   const register = async (email, password, username, avatar) => {
-    // 1. Create user
+    const finalAvatar = avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(username || email)}`;
+
+    // 1. Create user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
        email,
        password,
+       options: {
+         data: {
+           username,
+           avatar_url: finalAvatar
+         }
+       }
     });
 
     if (error) throw error;
 
-    // 2. Create profile
+    // 2. Set instant React state so Navbar updates in real-time
     if (data.user) {
-       const { error: profileError } = await supabase
-         .from("profiles")
-         .insert([
-            { id: data.user.id, username, avatar_url: avatar }
-         ]);
+       setUser({
+         id: data.user.id,
+         email: data.user.email,
+         name: username,
+         avatar: finalAvatar,
+       });
 
-       if (profileError) throw profileError;
+       // 3. Upsert profile in Supabase table
+       try {
+         await supabase
+           .from("profiles")
+           .upsert([
+              { id: data.user.id, username, avatar_url: finalAvatar }
+           ], { onConflict: "id" });
+       } catch (err) {
+         console.warn("Profile table update notice:", err);
+       }
     }
 
     return data;

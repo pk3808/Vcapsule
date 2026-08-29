@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, use, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,9 +29,9 @@ import { FloatingVibeReactions } from "@/components/shared/FloatingVibeReactions
 import { RoomJukebox } from "@/components/shared/RoomJukebox";
 import { playSendSound, playReceiveSound, playReactionSound } from "@/lib/soundFx";
 
-export default function ChatPage({ params }) {
-  const unwrappedParams = use(params);
-  const roomId = unwrappedParams.id;
+export default function ChatPage() {
+  const params = useParams();
+  const roomId = params?.id;
   const { user, mounted } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
@@ -969,6 +969,27 @@ export default function ChatPage({ params }) {
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-full border-4 border-black border-t-[#ffd028] animate-spin mb-4" />
         <p className="font-bold text-sm text-[#18181b]">Opening your vibe space...</p>
+      </div>
+    );
+  }
+
+  // ── SPACE NOT FOUND / DELETED SCREEN ────────────────────
+  if (isReady && !currentRoom && !inviteRoom) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-4.25rem)] text-center">
+        <div className="w-20 h-20 rounded-3xl bg-[#fee2e2] border-2 border-black flex items-center justify-center text-3xl shadow-[4px_4px_0px_#18181b] mb-4">
+          🪐
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black text-[#18181b] mb-2">Space Not Found</h1>
+        <p className="text-xs sm:text-sm text-stone-600 max-w-sm mb-6 font-medium">
+          This space may have been deleted or the link is invalid.
+        </p>
+        <Link
+          href="/"
+          className="px-6 py-3 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-xs sm:text-sm border-2 border-black shadow-[3px_3px_0px_#18181b] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
+        >
+          Back to Live Spaces
+        </Link>
       </div>
     );
   }
@@ -1961,8 +1982,8 @@ export default function ChatPage({ params }) {
         {particles.map((p) => (
           <motion.div
             key={p.id}
-            initial={{ opacity: 1, x: window?.innerWidth ? window.innerWidth / 2 + p.x : p.x, y: window?.innerHeight ? window.innerHeight / 2 + p.y : p.y, scale: 0.5 }}
-            animate={{ opacity: 0, y: (window?.innerHeight ? window.innerHeight / 2 + p.y : p.y) - 100, scale: p.scale }}
+            initial={{ opacity: 1, x: typeof window !== 'undefined' ? window.innerWidth / 2 + p.x : p.x, y: typeof window !== 'undefined' ? window.innerHeight / 2 + p.y : p.y, scale: 0.5 }}
+            animate={{ opacity: 0, y: (typeof window !== 'undefined' ? window.innerHeight / 2 + p.y : p.y) - 100, scale: p.scale }}
             transition={{ duration: 0.85, ease: "easeOut" }}
             className="absolute text-2xl select-none"
           >

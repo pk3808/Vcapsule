@@ -81,14 +81,14 @@ export function AuthModal({ isOpen, onOpenChange }) {
                 <span className="text-[10px] font-black uppercase text-stone-500 mb-2">Your Sticker Avatar</span>
                 <div className="relative">
                   <Avatar className="w-16 h-16 border-2 border-black shadow-[2px_2px_0px_#18181b]">
-                    <AvatarImage src={currentAvatarUrl} alt="Avatar" />
+                    <AvatarImage src={getAvatarUrl()} alt="Avatar" />
                     <AvatarFallback className="bg-[#fbcfe8] text-black font-black">
                       {(username || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <button
                     type="button"
-                    onClick={generateNewAvatar}
+                    onClick={generateRandomAvatar}
                     className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#ffd028] border border-black flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-transform"
                     title="Change avatar"
                   >
