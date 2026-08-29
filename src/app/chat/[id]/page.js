@@ -14,7 +14,7 @@ import {
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
   Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight, LogOut,
-  Lock, KeyRound, Globe, Trash2
+  Lock, KeyRound, Globe, Trash2, Pencil
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
@@ -227,6 +227,9 @@ export default function ChatPage({ params }) {
   // Reactions state with localStorage persistence
   const [reactions, setReactions] = useState({});
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const shouldDiscardRecordingRef = useRef(false);
 
   useEffect(() => {
     if (!roomId) return;
@@ -464,6 +467,16 @@ export default function ChatPage({ params }) {
           return updated;
         });
       })
+      .on('broadcast', { event: 'message:edit' }, (response) => {
+        const { messageId, text } = response.payload || {};
+        if (!messageId) return;
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, text, is_edited: true } : m));
+      })
+      .on('broadcast', { event: 'message:delete' }, (response) => {
+        const { messageId } = response.payload || {};
+        if (!messageId) return;
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+      })
       .on('broadcast', { event: 'call:offer' }, (payload) => {
         callSignalingHandlersRef.current?.handleOffer?.(payload);
       })
@@ -697,6 +710,7 @@ export default function ChatPage({ params }) {
 
   const startRecording = async () => {
     try {
+      shouldDiscardRecordingRef.current = false;
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -707,6 +721,14 @@ export default function ChatPage({ params }) {
       };
 
       mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+
+        if (shouldDiscardRecordingRef.current) {
+          audioChunksRef.current = [];
+          showToast("Voice recording discarded.", "info");
+          return;
+        }
+
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const audioFile = new File([audioBlob], `voice_note.webm`, { type: "audio/webm" });
         const optimisticId = Math.random().toString();
@@ -722,7 +744,6 @@ export default function ChatPage({ params }) {
           attachment: { url: localUrl, type: "audio", name: "Voice Note", isUploading: true }
         };
         setMessages(prev => [...prev, newMessage]);
-        stream.getTracks().forEach(track => track.stop());
 
         try {
           const mediaUrl = await uploadMedia(audioFile, 'audio');
@@ -772,7 +793,56 @@ export default function ChatPage({ params }) {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const handleDiscardRecording = () => {
+    shouldDiscardRecordingRef.current = true;
+    stopRecording();
+  };
+
+  const handleSendRecording = () => {
+    shouldDiscardRecordingRef.current = false;
+    stopRecording();
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'message:delete',
+        payload: { messageId }
+      });
+    }
+    try {
+      await supabase.from('messages').delete().eq('id', messageId);
+      showToast("Message deleted.", "info");
+    } catch (err) {
+      console.error("Error deleting message:", err);
+    }
+  };
+
+  const handleSaveEdit = async (messageId, newText) => {
+    if (!newText.trim()) return;
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, text: newText.trim(), is_edited: true } : m));
+    setEditingMessageId(null);
+    setEditingText("");
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'message:edit',
+        payload: { messageId, text: newText.trim() }
+      });
+    }
+
+    try {
+      await supabase.from('messages').update({ content: newText.trim(), is_edited: true }).eq('id', messageId);
+      showToast("Message updated.", "success");
+    } catch (err) {
+      console.error("Error updating message:", err);
     }
   };
 
@@ -785,11 +855,11 @@ export default function ChatPage({ params }) {
   const handleCopyLink = () => {
     const link = `${window.location.origin}/chat/${roomId}`;
     if (currentRoom?.is_private && currentRoom?.passcode) {
-      const inviteText = `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`;
+      const inviteText = `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jivive!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`;
       navigator.clipboard.writeText(inviteText);
       showToast(`Invite copied! Passcode is ${currentRoom.passcode}`, "success");
     } else {
-      const inviteText = `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}`;
+      const inviteText = `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jivive!\n🔗 Link: ${link}`;
       navigator.clipboard.writeText(inviteText);
       showToast("Room invite link copied to clipboard! Share it with friends.", "success");
     }
@@ -801,8 +871,8 @@ export default function ChatPage({ params }) {
     if (typeof window === 'undefined') return '#';
     const link = `${window.location.origin}/chat/${roomId}`;
     const text = currentRoom?.is_private && currentRoom?.passcode
-      ? `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`
-      : `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}`;
+      ? `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jivive!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`
+      : `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jivive!\n🔗 Link: ${link}`;
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
@@ -1424,8 +1494,10 @@ export default function ChatPage({ params }) {
         {/* ── RIGHT CHAT CANVAS ───────────────────────────────── */}
         <div className="flex-1 h-full flex flex-col bg-[#18181b] border-2 border-black rounded-[1.75rem] sm:rounded-[2rem] p-3 sm:p-4 shadow-[5px_5px_0px_rgba(24,24,27,0.15)] overflow-hidden min-w-0 relative">
           
-          {/* Floating Vibe Reactions & Emoji Emitter */}
-          <FloatingVibeReactions roomId={roomId} user={user} channel={channelRef.current} />
+          {/* Floating Vibe Reactions & Emoji Emitter (Hidden while recording) */}
+          {!isRecording && (
+            <FloatingVibeReactions roomId={roomId} user={user} channel={channelRef.current} />
+          )}
 
           {/* Top Sub-Bar */}
           <div className="flex items-center justify-between pb-2 mb-1 border-b border-stone-800 shrink-0 relative z-10">
@@ -1485,9 +1557,9 @@ export default function ChatPage({ params }) {
                           )}
                         </AnimatePresence>
 
-                        {/* Hover Floating Emoji Reaction Toolbar */}
+                        {/* Hover Floating Emoji Reaction & Action Toolbar */}
                         <AnimatePresence>
-                          {hoveredMessageId === msg.id && (
+                          {hoveredMessageId === msg.id && editingMessageId !== msg.id && (
                             <motion.div
                               initial={{ opacity: 0, scale: 0.85, y: 4 }}
                               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1513,6 +1585,38 @@ export default function ChatPage({ params }) {
                                   </button>
                                 );
                               })}
+
+                              {/* Owner Actions: Edit & Delete */}
+                              {isMe && (
+                                <div className="flex items-center pl-1 border-l border-stone-200 gap-0.5">
+                                  {msg.text && !msg.attachment && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingMessageId(msg.id);
+                                        setEditingText(msg.text);
+                                      }}
+                                      className="w-6 h-6 rounded-full hover:bg-amber-100 text-stone-700 flex items-center justify-center text-xs hover:scale-110 transition-transform"
+                                      title="Edit message"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteMessage(msg.id);
+                                    }}
+                                    className="w-6 h-6 rounded-full hover:bg-red-100 text-red-600 flex items-center justify-center text-xs hover:scale-110 transition-transform"
+                                    title="Delete message"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -1573,7 +1677,40 @@ export default function ChatPage({ params }) {
                             </div>
                           )}
 
-                          {msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                          {/* Message Text or Inline Edit Mode */}
+                          {editingMessageId === msg.id ? (
+                            <div className="flex items-center gap-1.5 w-full min-w-[200px] sm:min-w-[280px]">
+                              <input
+                                type="text"
+                                value={editingText}
+                                onChange={(e) => setEditingText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveEdit(msg.id, editingText);
+                                  if (e.key === 'Escape') setEditingMessageId(null);
+                                }}
+                                autoFocus
+                                className="flex-1 bg-stone-100 text-black px-3 py-1.5 rounded-xl text-xs border-2 border-black outline-none font-medium"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEdit(msg.id, editingText)}
+                                className="p-1.5 rounded-xl bg-[#34d399] hover:bg-[#10b981] text-black border border-black shadow-xs transition-transform active:scale-95"
+                                title="Save edit"
+                              >
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingMessageId(null)}
+                                className="p-1.5 rounded-xl bg-stone-200 hover:bg-stone-300 text-black border border-black shadow-xs transition-transform active:scale-95"
+                                title="Cancel edit"
+                              >
+                                <X className="w-3.5 h-3.5 stroke-[3]" />
+                              </button>
+                            </div>
+                          ) : (
+                            msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          )}
                         </div>
 
                         {/* Active Reaction Pills Badge */}
@@ -1604,11 +1741,14 @@ export default function ChatPage({ params }) {
                           </div>
                         )}
 
-                        {/* Timestamp & Read Receipt */}
+                        {/* Timestamp, Edited Badge & Read Receipt */}
                         <div className="flex items-center gap-1.5 mt-1 px-1 text-[9px] text-stone-500">
                           <span>
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          {msg.is_edited && (
+                            <span className="text-stone-400 font-bold ml-0.5">· edited</span>
+                          )}
                           {isMe && (
                             <span className="inline-flex items-center ml-0.5">
                               {seenMessageIds.has(msg.id) ? (
@@ -1669,35 +1809,8 @@ export default function ChatPage({ params }) {
             )}
           </AnimatePresence>
 
-          {/* ── LIVE RECORDING VISUALIZER WITH EQUALIZER BARS ── */}
-          {isRecording && (
-            <div className="flex items-center justify-center gap-3 my-1.5 shrink-0">
-              <div className="flex items-center gap-1 px-3 py-1 bg-red-950/80 border border-red-500 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping mr-1" />
-                <span className="text-xs font-mono font-bold text-red-300">{formatTime(recordingTime)}</span>
-                
-                {/* 5 live pulsing equalizer bars */}
-                <div className="flex items-center gap-1 ml-2 h-3">
-                  <span className="w-1 bg-red-400 rounded-full animate-pulse h-3" />
-                  <span className="w-1 bg-red-400 rounded-full animate-pulse h-2" style={{ animationDelay: '100ms' }} />
-                  <span className="w-1 bg-red-400 rounded-full animate-pulse h-4" style={{ animationDelay: '200ms' }} />
-                  <span className="w-1 bg-red-400 rounded-full animate-pulse h-2.5" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1 bg-red-400 rounded-full animate-pulse h-3.5" style={{ animationDelay: '50ms' }} />
-                </div>
-              </div>
-
-              <button
-                onClick={stopRecording}
-                className="bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-xs px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-md border border-black transition-transform active:scale-95"
-              >
-                <Square className="w-3 h-3 fill-current" />
-                <span>Send Note</span>
-              </button>
-            </div>
-          )}
-
           {/* ── FIXED BOTTOM INPUT BAR ───────────────────────── */}
-          <div className="pt-2.5 border-t border-stone-800 shrink-0">
+          <div className="pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] border-t border-stone-800 shrink-0">
             <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'file')} />
             <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'image')} />
             <input type="file" accept="video/*" ref={videoInputRef} className="hidden" onChange={(e) => handleFileSelect(e, 'video')} />
@@ -1710,97 +1823,136 @@ export default function ChatPage({ params }) {
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-              {/* White Pill Input */}
-              <div className="flex-1 bg-white rounded-full flex items-center px-4 py-1 shadow-sm border border-stone-200 focus-within:ring-2 focus-within:ring-[#ffd028]">
-                <Input
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  onFocus={() => {
-                    setTimeout(() => {
-                      scrollToBottom("smooth");
-                    }, 300);
-                  }}
-                  onBlur={handleInputBlur}
-                  placeholder="Type a message..."
-                  className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent text-black text-sm px-0 h-9 placeholder:text-stone-400"
-                />
+            {isRecording ? (
+              /* Active Voice Recording Bar with Discard & Send */
+              <div className="flex items-center justify-between gap-2 bg-[#27272a] border-2 border-red-500/80 rounded-full px-3 sm:px-4 py-1.5 shadow-lg animate-pulse-gentle">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                  <span className="text-xs font-mono font-black text-red-400">{formatTime(recordingTime)}</span>
+                  
+                  {/* Live Equalizer Animation */}
+                  <div className="flex items-center gap-0.5 h-3 shrink-0">
+                    <motion.span animate={{ height: ["4px", "14px", "6px", "12px", "4px"] }} transition={{ repeat: Infinity, duration: 1 }} className="w-0.5 bg-red-400 rounded-full" />
+                    <motion.span animate={{ height: ["12px", "4px", "14px", "6px", "12px"] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-0.5 bg-red-400 rounded-full" />
+                    <motion.span animate={{ height: ["6px", "14px", "4px", "10px", "6px"] }} transition={{ repeat: Infinity, duration: 1.2 }} className="w-0.5 bg-red-400 rounded-full" />
+                  </div>
+                  <span className="text-stone-300 text-[11px] font-bold hidden sm:inline truncate">Recording note...</span>
+                </div>
 
-                {/* Emoji Popover */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDiscardRecording}
+                    className="px-3 py-1.5 rounded-full bg-stone-700 hover:bg-red-600 text-white font-bold text-xs flex items-center gap-1 border border-stone-600 transition-all active:scale-95"
+                    title="Discard recording"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Discard</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendRecording}
+                    className="px-3.5 py-1.5 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-xs border border-black flex items-center gap-1 shadow-sm transition-all hover:scale-105 active:scale-95"
+                    title="Send voice note"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Note</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                {/* White Pill Input */}
+                <div className="flex-1 bg-white rounded-full flex items-center px-4 py-1 shadow-sm border border-stone-200 focus-within:ring-2 focus-within:ring-[#ffd028]">
+                  <Input
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        scrollToBottom("smooth");
+                      }, 300);
+                    }}
+                    onBlur={handleInputBlur}
+                    placeholder="Type a message..."
+                    className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent text-black text-sm px-0 h-9 placeholder:text-stone-400"
+                  />
+
+                  {/* Emoji Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button type="button" className="text-stone-400 hover:text-stone-700 transition-colors p-1">
+                        <Smile className="w-5 h-5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="top" align="end" className="p-0 border-0 shadow-none bg-transparent">
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) => setInputValue(prev => prev + emojiData.emoji)}
+                        theme="light"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Mint Green Plus Button (Attachment Menu) */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button type="button" className="text-stone-400 hover:text-stone-700 transition-colors p-1">
-                      <Smile className="w-5 h-5" />
+                    <button
+                      type="button"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#34d399] hover:bg-[#22c55e] text-[#18181b] font-black flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0"
+                    >
+                      <Plus className="w-5 h-5 stroke-[3]" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent side="top" align="end" className="p-0 border-0 shadow-none bg-transparent">
-                    <EmojiPicker
-                      onEmojiClick={(emojiData) => setInputValue(prev => prev + emojiData.emoji)}
-                      theme="light"
-                    />
+                  <PopoverContent side="top" align="end" className="w-44 p-1.5 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#18181b]">
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4 text-emerald-600" />
+                      Photo / Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => videoInputRef.current?.click()}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                    >
+                      <Video className="w-4 h-4 text-purple-600" />
+                      Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                    >
+                      <Paperclip className="w-4 h-4 text-amber-600" />
+                      Document
+                    </button>
                   </PopoverContent>
                 </Popover>
-              </div>
 
-              {/* Mint Green Plus Button (Attachment Menu) */}
-              <Popover>
-                <PopoverTrigger asChild>
+                {/* Mic / Send Button */}
+                {!inputValue.trim() && !pendingFile ? (
                   <button
                     type="button"
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#34d399] hover:bg-[#22c55e] text-[#18181b] font-black flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0"
+                    onClick={startRecording}
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-stone-700"
+                    title="Start voice recording"
                   >
-                    <Plus className="w-5 h-5 stroke-[3]" />
+                    <Mic className="w-4 h-4" />
                   </button>
-                </PopoverTrigger>
-                <PopoverContent side="top" align="end" className="w-44 p-1.5 bg-white border-2 border-black rounded-2xl shadow-[4px_4px_0px_#18181b]">
+                ) : (
                   <button
-                    type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
+                    type="submit"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-black"
                   >
-                    <ImageIcon className="w-4 h-4 text-emerald-600" />
-                    Photo / Image
+                    <Send className="w-4 h-4 ml-0.5" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => videoInputRef.current?.click()}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
-                  >
-                    <Video className="w-4 h-4 text-purple-600" />
-                    Video
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-black hover:bg-stone-100 rounded-xl transition-colors"
-                  >
-                    <Paperclip className="w-4 h-4 text-amber-600" />
-                    Document
-                  </button>
-                </PopoverContent>
-              </Popover>
-
-              {/* Mic / Send Button */}
-              {!inputValue.trim() && !pendingFile ? (
-                <button
-                  type="button"
-                  onPointerDown={startRecording}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#27272a] hover:bg-[#3f3f46] text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-stone-700"
-                  title="Hold to record voice"
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-bold flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0 border border-black"
-                >
-                  <Send className="w-4 h-4 ml-0.5" />
-                </button>
-              )}
-            </form>
+                )}
+              </form>
+            )}
           </div>
-
         </div>
       </div>
 

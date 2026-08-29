@@ -28,7 +28,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/components/shared/VibeToast";
 
 export const metadata = {
-  title: "Jiyo — Live Hangout & Audio Spaces",
+  title: "Jivive — Live Hangout & Audio Spaces",
   description: "Live voice calls, audio notes, and endless conversation with friends. Real vibes, no algorithms.",
   icons: {
     icon: "/icon.png",

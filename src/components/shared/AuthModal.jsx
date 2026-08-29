@@ -54,7 +54,7 @@ export function AuthModal({ isOpen, onOpenChange }) {
       <DialogContent className="sm:max-w-[420px] bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] p-6">
         <DialogHeader className="space-y-1 mb-4">
           <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3 py-1 rounded-full text-xs font-bold w-fit mb-2 shadow-[2px_2px_0px_#ffd028]">
-            <span className="font-black">Jiyo</span>
+            <span className="font-black">Jivive</span>
             <Waves className="w-3.5 h-3.5 text-[#ffd028]" />
           </div>
           <DialogTitle className="text-2xl font-black text-[#18181b]">

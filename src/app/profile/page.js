@@ -140,7 +140,7 @@ export default function ProfilePage() {
         className="bg-white border-2 border-[#18181b] rounded-3xl p-6 sm:p-8 shadow-[5px_5px_0px_#18181b] mb-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden"
       >
         <div className="absolute top-4 right-4 bg-[#ffd028] text-black font-extrabold text-[10px] uppercase px-3 py-1 rounded-full border border-black shadow-[1px_1px_0px_#18181b] flex items-center gap-1.5">
-          <span>Jiyo Member</span>
+          <span>Jivive Member</span>
           <Waves className="w-3 h-3 text-black" />
         </div>
 
