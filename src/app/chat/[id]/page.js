@@ -39,6 +39,7 @@ export default function ChatPage({ params }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isCallPickerOpen, setIsCallPickerOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -899,25 +900,82 @@ export default function ChatPage({ params }) {
 
         {/* Right: Voice Call, Sound Toggle, Mobile Sidebar Toggle & Invite */}
         <div className="flex items-center gap-2">
-          {/* Voice Call Button */}
+          {/* Clean Voice Call Button */}
           <button
             onClick={() => {
-              const other = allMembers.find(m => !m.isMe);
-              if (!other) {
-                showToast("No other participant is in the room yet! Invite a friend to start talking.", "warning");
+              const onlineOthers = allMembers.filter(m => !m.isMe && m.isOnline);
+              if (onlineOthers.length === 0) {
+                showToast("No other friends are online in this room right now! Share the link to invite them.", "warning");
                 return;
               }
-              setActiveCallState({
-                type: "OUTGOING",
-                targetUser: { id: other.id, name: other.name, avatar: other.avatar }
-              });
+              if (onlineOthers.length === 1) {
+                // Exactly 1 friend online -> Call immediately with zero extra popups
+                setActiveCallState({
+                  type: "OUTGOING",
+                  targetUser: { id: onlineOthers[0].id, name: onlineOthers[0].name, avatar: onlineOthers[0].avatar }
+                });
+                return;
+              }
+              // 2+ friends online -> Open member picker
+              setIsCallPickerOpen(true);
             }}
             className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-[#34d399] hover:bg-[#10b981] text-black font-extrabold text-xs sm:text-sm flex items-center gap-1.5 border-2 border-black shadow-[2px_2px_0px_#18181b] transition-transform hover:scale-105 active:scale-95"
             title="Start Voice Call"
           >
             <Phone className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Voice Call</span>
+            {allMembers.filter(m => !m.isMe && m.isOnline).length > 1 && (
+              <span className="bg-black text-white text-[10px] px-1.5 py-0.2 rounded-full ml-0.5">
+                {allMembers.filter(m => !m.isMe && m.isOnline).length}
+              </span>
+            )}
           </button>
+
+          {/* Multi-Member Call Picker Dialog (Only opens when 2+ friends online) */}
+          <Dialog open={isCallPickerOpen} onOpenChange={setIsCallPickerOpen}>
+            <DialogContent className="sm:max-w-[360px] bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] p-5">
+              <DialogHeader className="space-y-1 pb-2 border-b border-stone-200">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <DialogTitle className="text-base font-black text-[#18181b]">
+                    Who would you like to call?
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-xs text-stone-500">
+                  Select an online member to start a voice call.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2 py-2 max-h-60 overflow-y-auto">
+                {allMembers.filter(m => !m.isMe && m.isOnline).map((member) => (
+                  <button
+                    key={member.id}
+                    onClick={() => {
+                      setIsCallPickerOpen(false);
+                      setActiveCallState({
+                        type: "OUTGOING",
+                        targetUser: { id: member.id, name: member.name, avatar: member.avatar }
+                      });
+                    }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-2xl bg-white border-2 border-black/10 hover:border-black hover:bg-[#ffd028]/20 transition-all text-left group shadow-xs active:scale-98"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="w-8 h-8 border border-black shadow-xs">
+                        <AvatarImage src={member.avatar} />
+                        <AvatarFallback className="bg-[#fbcfe8] text-black font-black text-xs">
+                          {(member.name || "U").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-bold text-xs text-[#18181b] truncate">{member.name}</span>
+                    </div>
+                    <div className="p-2 rounded-full bg-[#34d399] border border-black group-hover:scale-110 transition-transform">
+                      <Phone className="w-3.5 h-3.5 text-black" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Sound FX Toggle */}
           <button
