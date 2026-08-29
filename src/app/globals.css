@@ -267,3 +267,15 @@
 .animate-float-gentle {
   animation: float-gentle 4s ease-in-out infinite;
 }
+
+.animate-spin-slow {
+  animation: spin 6s linear infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

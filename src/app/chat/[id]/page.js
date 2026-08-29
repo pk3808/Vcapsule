@@ -1065,28 +1065,28 @@ export default function ChatPage({ params }) {
   const activeTypingNames = Object.values(typingUsers);
 
   return (
-    <div className="h-[calc(100vh-4.25rem)] w-full max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex flex-col overflow-hidden relative">
+    <div className="h-[calc(100dvh-4.25rem)] w-full max-w-7xl mx-auto px-2 sm:px-6 pt-1.5 pb-2 sm:py-3 flex flex-col overflow-hidden relative">
       
       {/* ── TOP ACTION BAR ─────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-2.5 px-1 shrink-0">
+      <div className="flex items-center justify-between gap-3 mb-2.5 px-1 shrink-0 overflow-x-auto no-scrollbar py-1 max-w-full">
         {/* Left: Back & Room Pill */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
             href="/"
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#18181b] hover:bg-black text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#18181b] hover:bg-black text-white flex items-center justify-center shadow-sm transition-transform hover:scale-105 active:scale-95 shrink-0"
             title="Back to home"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
 
-          <div className="bg-white border-2 border-[#18181b] rounded-full px-3.5 sm:px-4 py-1.5 flex items-center gap-2 shadow-[2px_2px_0px_#18181b] text-xs sm:text-sm font-black text-[#18181b]">
+          <div className="bg-white border-2 border-[#18181b] rounded-full px-3.5 sm:px-4 py-1.5 flex items-center gap-2 shadow-[2px_2px_0px_#18181b] text-xs sm:text-sm font-black text-[#18181b] shrink-0">
             <span className="text-[#ffd028]">✦</span>
             <span className="truncate max-w-[110px] sm:max-w-[180px]">{currentRoom?.name || "Vibe Space"}</span>
           </div>
 
           {/* Dynamic Category Pill */}
           {currentRoom?.category && (
-            <span className="hidden sm:inline-flex items-center text-[10px] font-black bg-stone-100 text-stone-700 px-2.5 py-1 rounded-full border border-stone-300 shadow-xs">
+            <span className="hidden sm:inline-flex items-center text-[10px] font-black bg-stone-100 text-stone-700 px-2.5 py-1 rounded-full border border-stone-300 shadow-xs shrink-0">
               {currentRoom.category}
             </span>
           )}
@@ -1098,7 +1098,7 @@ export default function ChatPage({ params }) {
                 navigator.clipboard.writeText(currentRoom.passcode);
                 showToast(`Passcode "${currentRoom.passcode}" copied!`, "success");
               }}
-              className="bg-[#34d399] border-2 border-black rounded-full px-2.5 sm:px-3 py-1 flex items-center gap-1.5 shadow-[2px_2px_0px_#18181b] text-xs font-black text-black cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+              className="bg-[#34d399] border-2 border-black rounded-full px-2.5 sm:px-3 py-1 flex items-center gap-1.5 shadow-[2px_2px_0px_#18181b] text-xs font-black text-black cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0"
               title="Click to copy passcode"
             >
               <Lock className="w-3 h-3" />
@@ -1109,7 +1109,7 @@ export default function ChatPage({ params }) {
         </div>
 
         {/* Right: Voice Call, Sound Toggle, Mobile Sidebar Toggle & Invite */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Clean Voice Call Button */}
           <button
             onClick={() => {
@@ -1129,7 +1129,7 @@ export default function ChatPage({ params }) {
               // 2+ friends online -> Open member picker
               setIsCallPickerOpen(true);
             }}
-            className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-[#34d399] hover:bg-[#10b981] text-black font-extrabold text-xs sm:text-sm flex items-center gap-1.5 border-2 border-black shadow-[2px_2px_0px_#18181b] transition-transform hover:scale-105 active:scale-95"
+            className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-[#34d399] hover:bg-[#10b981] text-black font-extrabold text-xs sm:text-sm flex items-center gap-1.5 border-2 border-black shadow-[2px_2px_0px_#18181b] transition-transform hover:scale-105 active:scale-95 shrink-0"
             title="Start Voice Call"
           >
             <Phone className="w-3.5 h-3.5" />
@@ -1716,6 +1716,11 @@ export default function ChatPage({ params }) {
                 <Input
                   value={inputValue}
                   onChange={handleInputChange}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollToBottom("smooth");
+                    }, 300);
+                  }}
                   onBlur={handleInputBlur}
                   placeholder="Type a message..."
                   className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent text-black text-sm px-0 h-9 placeholder:text-stone-400"

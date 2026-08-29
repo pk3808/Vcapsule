@@ -131,12 +131,12 @@ export function FloatingVibeReactions({ roomId, user, channel }) {
       </div>
 
       {/* ── FLOATING VIBE REACTION TRIGGER BAR ─────────────── */}
-      <div className="absolute bottom-20 right-4 sm:right-6 z-30 flex items-center gap-1 bg-[#18181b]/90 backdrop-blur-md border-2 border-white/20 hover:border-[#ffd028] p-1.5 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.4)] transition-all">
+      <div className="absolute bottom-16 sm:bottom-20 right-2.5 sm:right-6 z-30 flex items-center gap-0.5 sm:gap-1 bg-[#18181b]/90 backdrop-blur-md border-2 border-white/20 hover:border-[#ffd028] p-1 sm:p-1.5 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.4)] transition-all scale-90 sm:scale-100 origin-bottom-right">
         {VIBE_EMOJIS.map((item) => (
           <button
             key={item.emoji}
             onClick={() => handleSendReaction(item.emoji)}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hover:bg-white/15 active:scale-125 flex items-center justify-center text-lg sm:text-xl transition-transform hover:scale-110 active:transition-none"
+            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full hover:bg-white/15 active:scale-125 flex items-center justify-center text-base sm:text-xl transition-transform hover:scale-110 active:transition-none"
             title={`Send ${item.label} vibe`}
           >
             {item.emoji}
