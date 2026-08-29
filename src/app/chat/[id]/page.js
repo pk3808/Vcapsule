@@ -14,7 +14,7 @@ import {
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
   Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight, LogOut,
-  Lock, KeyRound, Globe
+  Lock, KeyRound, Globe, Trash2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
@@ -869,6 +869,22 @@ export default function ChatPage({ params }) {
     }
   };
 
+  const handleDeleteRoom = async () => {
+    if (!user || !roomId || currentRoom?.created_by !== user.id) return;
+    if (!window.confirm(`Are you sure you want to delete "${currentRoom?.name || "this space"}"? All messages, voice notes, and media will be permanently deleted.`)) {
+      return;
+    }
+
+    try {
+      await supabase.from("rooms").delete().eq("id", roomId);
+      showToast("Space deleted successfully.", "success");
+      router.push("/profile");
+    } catch (err) {
+      console.error("Error deleting room:", err);
+      showToast("Failed to delete space: " + err.message, "error");
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -1272,6 +1288,18 @@ export default function ChatPage({ params }) {
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Delete Space Button for Room Owner */}
+          {currentRoom?.created_by === user?.id && (
+            <button
+              onClick={handleDeleteRoom}
+              className="h-9 sm:h-10 px-3 rounded-full bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-extrabold text-xs flex items-center gap-1.5 border-2 border-black shadow-[2px_2px_0px_#18181b] transition-all hover:scale-105 active:scale-95 shrink-0"
+              title="Delete this Space (Owner only)"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Delete Space</span>
+            </button>
+          )}
         </div>
       </div>
 

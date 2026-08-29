@@ -164,8 +164,19 @@ export function AuthProvider({ children }) {
     return room;
   };
 
+  const deleteRoom = async (roomId) => {
+    const { error } = await supabase
+      .from('rooms')
+      .delete()
+      .eq('id', roomId);
+
+    if (error) throw error;
+
+    setRooms(prev => prev.filter(r => r.id !== roomId));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, rooms, mounted, login, register, logout, addRoom }}>
+    <AuthContext.Provider value={{ user, rooms, mounted, login, register, logout, addRoom, deleteRoom }}>
       {children}
     </AuthContext.Provider>
   );

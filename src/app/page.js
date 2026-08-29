@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { AuthModal } from "@/components/shared/AuthModal";
 import { CreateRoomModal } from "@/components/shared/CreateRoomModal";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Plus, Hash, Flame, Music, Film, BookOpen, Coffee, Smile, Users, Globe } from "lucide-react";
+import { ArrowRight, Sparkles, Plus, Hash, Flame, Music, Film, BookOpen, Coffee, Smile, Users, Globe, Loader2 } from "lucide-react";
 
 export default function Home() {
   const { user } = useAuth();
+  const PAGE_SIZE = 6;
   const [publicRooms, setPublicRooms] = useState([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const observerTarget = useRef(null);
+
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
@@ -30,23 +38,81 @@ export default function Home() {
     "🎮 Gaming",
   ];
 
-  useEffect(() => {
-    async function fetchPublicRooms() {
-      try {
-        const { data, error } = await supabase
-          .from("rooms")
-          .select("id, name, category, max_members, created_at, room_members(count)")
-          .eq("is_private", false)
-          .order("created_at", { ascending: false })
-          .limit(6);
-
-        if (!error && data) {
-          setPublicRooms(data);
-        }
-      } catch (e) {}
+  const fetchRooms = async (pageToFetch = 0) => {
+    if (pageToFetch === 0) {
+      setIsLoadingRooms(true);
+      // Auto-cleanup stale inactive public rooms in database
+      supabase.rpc('cleanup_inactive_public_rooms').then(() => {}).catch(() => {});
+    } else {
+      setIsLoadingMore(true);
     }
-    fetchPublicRooms();
-  }, []);
+
+    try {
+      const from = pageToFetch * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .from("rooms")
+        .select("id, name, category, max_members, created_at, room_members(count)", { count: "exact" })
+        .eq("is_private", false)
+        .order("created_at", { ascending: false });
+
+      if (selectedCategory !== "All") {
+        const cleanCat = selectedCategory.replace(/[^a-zA-Z]/g, '').toLowerCase();
+        query = query.ilike("category", `%${cleanCat}%`);
+      }
+
+      const { data, count, error } = await query.range(from, to);
+
+      if (!error && data) {
+        if (pageToFetch === 0) {
+          setPublicRooms(data);
+        } else {
+          setPublicRooms((prev) => {
+            const existingIds = new Set(prev.map((r) => r.id));
+            const newRooms = data.filter((r) => !existingIds.has(r.id));
+            return [...prev, ...newRooms];
+          });
+        }
+        if (count !== null) setTotalCount(count);
+        setHasMore(data.length === PAGE_SIZE && (count === null || (from + data.length) < count));
+        setPage(pageToFetch);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingRooms(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(0);
+    setHasMore(true);
+    fetchRooms(0);
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingRooms && !isLoadingMore) {
+          fetchRooms(page + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, isLoadingRooms, isLoadingMore, page]);
 
   const handleCreateRoomClick = (prompt = "", cat = "") => {
     setInitialPromptText(typeof prompt === "string" ? prompt : "");
@@ -66,15 +132,6 @@ export default function Home() {
     }
   };
 
-  const trendingTopics = [
-    { name: "Late Night Beats", emoji: "🎵" },
-    { name: "Next.js Devs", emoji: "💻" },
-    { name: "Sushi Lovers", emoji: "🍣" },
-    { name: "UI/UX Doodles", emoji: "🎨" },
-    { name: "Book Club", emoji: "📚" },
-    { name: "Chill Cafe", emoji: "☕" },
-  ];
-
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 md:px-12 py-6 sm:py-10 flex flex-col justify-between">
       
@@ -88,30 +145,58 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="lg:col-span-7 flex flex-col items-start text-left"
         >
-          {/* Top Tag Pill */}
-          <div className="flex items-center gap-2 mb-6">
-            <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full inline-flex items-center gap-2 text-xs font-bold shadow-sm">
+          {/* Top Tag & Social Proof Row */}
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full inline-flex items-center gap-2 text-xs font-black shadow-[3px_3px_0px_#ffd028]">
               <span className="text-[#ffd028]">✦</span>
               <span>ChaTin Spaces</span>
-              <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse ml-0.5"></span>
+              <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse"></span>
+            </div>
+
+            {/* Live Social Proof Pill */}
+            <div className="bg-white border-2 border-[#18181b] rounded-full px-3 py-1 flex items-center gap-2 shadow-[3px_3px_0px_#18181b]">
+              <div className="flex -space-x-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#ffd028] border border-black flex items-center justify-center text-[10px]">😎</span>
+                <span className="w-5 h-5 rounded-full bg-[#fbcfe8] border border-black flex items-center justify-center text-[10px]">🎧</span>
+                <span className="w-5 h-5 rounded-full bg-[#34d399] border border-black flex items-center justify-center text-[10px]">✨</span>
+              </div>
+              <span className="text-[11px] font-black text-[#18181b]">2.4k vibing live</span>
             </div>
           </div>
 
-          {/* Huge Punchy Title with Creative Font Accents */}
+          {/* Huge Punchy Title with High-Impact Highlight Stamp & Italic Serif */}
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-black text-[#18181b] tracking-tight leading-[1.04] mb-6">
-            The best hangout spaces with a{" "}
-            <span className="font-serif italic font-normal text-amber-600 sm:text-[1.1em] tracking-normal inline-block underline decoration-[#ffd028] decoration-wavy decoration-2 underline-offset-8">
-              fun vibe.
+            The hangout{" "}
+            <span className="relative inline-block px-3 py-0.5 mx-1">
+              <span className="relative z-10 text-white">spaces</span>
+              <span className="absolute inset-0 bg-[#18181b] -rotate-1 rounded-2xl -z-0 shadow-[4px_4px_0px_#ffd028]" />
+            </span>{" "}
+            where friends{" "}
+            <span className="font-serif italic font-normal text-amber-600 sm:text-[1.08em] tracking-normal inline-block underline decoration-[#ffd028] decoration-wavy decoration-2 underline-offset-8">
+              actually vibe.
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-lg text-stone-600 font-medium max-w-xl mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg text-stone-600 font-medium max-w-xl mb-6 leading-relaxed">
             A playful place for live voice calls, audio notes, instant photos, videos, and endless conversation with friends. No algorithms, just pure vibes.
           </p>
 
+          {/* Micro Feature Stamps */}
+          <div className="flex flex-wrap items-center gap-2 mb-8">
+            <span className="bg-white border-2 border-black text-[#18181b] text-xs font-bold px-3 py-1 rounded-full shadow-[2px_2px_0px_#18181b] flex items-center gap-1.5">
+              🎙️ 1-Tap Voice Calls
+            </span>
+            <span className="bg-[#fbcfe8] border-2 border-black text-[#18181b] text-xs font-bold px-3 py-1 rounded-full shadow-[2px_2px_0px_#18181b] flex items-center gap-1.5">
+              📻 Audio Notes
+            </span>
+            <span className="bg-[#34d399] border-2 border-black text-[#18181b] text-xs font-bold px-3 py-1 rounded-full shadow-[2px_2px_0px_#18181b] flex items-center gap-1.5">
+              🔒 Private PIN Gates
+            </span>
+          </div>
+
           {/* Big Yellow Pill CTA Button */}
-          <div className="w-full sm:w-auto min-w-[280px] sm:min-w-[340px] mb-8">
+          <div className="w-full sm:w-auto min-w-[280px] sm:min-w-[340px]">
             <button
               onClick={handleCreateRoomClick}
               className="w-full bg-[#ffd028] hover:bg-[#fcc200] text-[#18181b] font-extrabold text-base sm:text-lg px-7 py-4 rounded-full border-2 border-[#18181b] shadow-[5px_5px_0px_#18181b] hover:shadow-[2px_2px_0px_#18181b] hover:translate-x-[3px] hover:translate-y-[3px] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none transition-all flex items-center justify-between group"
@@ -121,20 +206,6 @@ export default function Home() {
                 <ArrowRight className="w-5 h-5" />
               </div>
             </button>
-          </div>
-
-          {/* Quick Trending Pills */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <span className="text-xs font-black text-stone-500 mr-1">Trending:</span>
-            {trendingTopics.slice(0, 4).map((topic, i) => (
-              <button
-                key={i}
-                onClick={() => handleCreateRoomClick(topic.name, topic.emoji ? `${topic.emoji} ${topic.name}` : "🔥 Trending")}
-                className="bg-white hover:bg-stone-100 text-black border border-black/20 hover:border-black text-xs font-bold px-3 py-1.5 rounded-full shadow-sm transition-all hover:scale-105"
-              >
-                <span>{topic.emoji} {topic.name}</span>
-              </button>
-            ))}
           </div>
         </motion.div>
 
@@ -583,6 +654,21 @@ export default function Home() {
               </div>
             );
           })()}
+
+          {/* Infinite Scroll Trigger & Load More */}
+          <div ref={observerTarget} className="mt-8 flex flex-col items-center justify-center py-4">
+            {isLoadingMore && (
+              <div className="flex items-center gap-2 bg-[#18181b] text-white px-5 py-2.5 rounded-full text-xs font-black shadow-md">
+                <Loader2 className="w-4 h-4 animate-spin text-[#ffd028]" />
+                <span>Loading more vibe spaces...</span>
+              </div>
+            )}
+            {!hasMore && publicRooms.length > 0 && !isLoadingRooms && (
+              <p className="text-xs font-bold text-stone-400 bg-stone-100 px-4 py-1.5 rounded-full border border-stone-200">
+                ✨ You're all caught up with all live spaces!
+              </p>
+            )}
+          </div>
         </div>
 
       </div>
