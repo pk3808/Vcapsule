@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hash, LogOut, Settings, User, MessageSquare, ArrowRight, Sparkles, Plus } from "lucide-react";
+import { Hash, LogOut, Settings, User, MessageSquare, ArrowRight, Sparkles, Plus, Lock, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -111,23 +111,52 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {rooms.map((room, i) => {
               // Alternate pastel background colors
-              const bgClass = i % 2 === 0 ? "bg-[#fbcfe8]" : "bg-[#34d399]";
+              const bgClass = room.is_private 
+                ? "bg-[#34d399]" 
+                : (i % 2 === 0 ? "bg-[#fbcfe8]" : "bg-[#fed7aa]");
+              const isOwner = room.created_by === user?.id;
 
               return (
                 <Link href={`/chat/${room.id}`} key={room.id}>
-                  <div className={`${bgClass} border-2 border-[#18181b] rounded-3xl p-5 shadow-[4px_4px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#18181b] transition-all flex flex-col justify-between min-h-[160px] group`}>
-                    <div className="flex items-start justify-between">
-                      <div className="w-8 h-8 rounded-full bg-white border border-black flex items-center justify-center text-xs font-black">
-                        #
+                  <div className={`${bgClass} border-2 border-[#18181b] rounded-3xl p-5 shadow-[4px_4px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#18181b] transition-all flex flex-col justify-between min-h-[170px] group relative overflow-hidden`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-8 h-8 rounded-full bg-white border border-black flex items-center justify-center text-xs font-black shrink-0">
+                        {room.is_private ? <Lock className="w-3.5 h-3.5 text-emerald-800" /> : <Globe className="w-3.5 h-3.5 text-stone-700" />}
                       </div>
-                      <span className="text-[10px] font-black bg-black text-white px-2.5 py-0.5 rounded-full">
-                        Owner
-                      </span>
+
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {/* Privacy Tag */}
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border border-black flex items-center gap-1 ${
+                          room.is_private ? "bg-[#18181b] text-[#34d399]" : "bg-white text-black"
+                        }`}>
+                          {room.is_private ? "🔒 Private" : "🌐 Public"}
+                        </span>
+
+                        {/* Owner / Member Tag */}
+                        <span className="text-[10px] font-black bg-black text-white px-2 py-0.5 rounded-full">
+                          {isOwner ? "Owner" : "Member"}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <h4 className="font-black text-base text-[#18181b] leading-tight line-clamp-2">{room.name}</h4>
-                      <p className="text-[11px] font-bold text-black/60 mt-1">Tap to enter →</p>
+                      
+                      {/* Passcode display for private spaces */}
+                      {room.is_private && room.passcode && (
+                        <div className="mt-1.5 inline-flex items-center gap-1 bg-black/10 px-2 py-0.5 rounded-md text-[11px] font-mono font-black text-black">
+                          <span>PIN:</span>
+                          <span>{room.passcode}</span>
+                        </div>
+                      )}
+
+                      {!room.is_private && room.category && (
+                        <span className="text-[10px] font-bold text-stone-700 block mt-1">
+                          {room.category}
+                        </span>
+                      )}
+
+                      <p className="text-[11px] font-bold text-black/70 mt-2">Tap to enter →</p>
                     </div>
                   </div>
                 </Link>
@@ -136,7 +165,7 @@ export default function ProfilePage() {
 
             {/* Create Room Box */}
             <Link href="/">
-              <div className="bg-white border-2 border-dashed border-[#18181b] rounded-3xl p-5 shadow-[3px_3px_0px_#18181b] hover:bg-amber-50/50 transition-all flex flex-col items-center justify-center text-center min-h-[160px] cursor-pointer">
+              <div className="bg-white border-2 border-dashed border-[#18181b] rounded-3xl p-5 shadow-[3px_3px_0px_#18181b] hover:bg-amber-50/50 transition-all flex flex-col items-center justify-center text-center min-h-[170px] cursor-pointer">
                 <div className="w-10 h-10 rounded-full bg-[#ffd028] border border-black flex items-center justify-center text-lg mb-2 shadow-sm">
                   +
                 </div>

@@ -13,7 +13,8 @@ import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
-  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight, LogOut
+  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight, LogOut,
+  Lock, KeyRound, Globe
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,6 +41,13 @@ export default function ChatPage({ params }) {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isCallPickerOpen, setIsCallPickerOpen] = useState(false);
+  
+  // Private space passcode state
+  const [isPasscodeLocked, setIsPasscodeLocked] = useState(false);
+  const [enteredPasscode, setEnteredPasscode] = useState("");
+  const [passcodeError, setPasscodeError] = useState("");
+  const [isVerifyingPasscode, setIsVerifyingPasscode] = useState(false);
+
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -102,11 +110,42 @@ export default function ChatPage({ params }) {
         }
 
         if (isActive) {
-          setCurrentRoom({ name: room.name, purpose: "Vibe and chat room" });
+          setCurrentRoom({ 
+            name: room.name, 
+            purpose: "Vibe and chat room",
+            is_private: room.is_private,
+            passcode: room.passcode,
+            category: room.category,
+            max_members: room.max_members,
+            created_by: room.created_by,
+          });
           setInviteRoom(room);
         }
 
-        // If not logged in, stop here and show the Invite Landing screen
+        // Check if user is already an accepted member or creator
+        const isOwner = room.created_by === user?.id;
+        let isAlreadyMember = isOwner;
+
+        if (user && !isOwner) {
+          const { data: mem } = await supabase
+            .from("room_members")
+            .select("id")
+            .eq("room_id", roomId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (mem) isAlreadyMember = true;
+        }
+
+        // If room is Private and user is not yet verified -> Lock with passcode
+        if (room.is_private && !isAlreadyMember) {
+          if (isActive) {
+            setIsPasscodeLocked(true);
+            setIsReady(true);
+          }
+          return;
+        }
+
+        // If public room and not logged in -> Show invite preview
         if (!user) {
           if (isActive) setIsReady(true);
           return;
@@ -273,7 +312,7 @@ export default function ChatPage({ params }) {
 
   // Realtime Channel (Messages, Reactions, Presence & Typing)
   useEffect(() => {
-    if (!isReady || !roomId || !user) return;
+    if (!isReady || !roomId || !user || isPasscodeLocked) return;
 
     const channel = supabase.channel(`room:${roomId}`, {
       config: {
@@ -455,7 +494,7 @@ export default function ChatPage({ params }) {
       setRealtimeChannel(null);
       supabase.removeChannel(channel);
     };
-  }, [isReady, roomId, user, soundEnabled]);
+  }, [isReady, roomId, user, isPasscodeLocked, soundEnabled]);
 
   // Automatically acknowledge seen messages on entering room
   useEffect(() => {
@@ -743,10 +782,62 @@ export default function ChatPage({ params }) {
 
   const handleCopyLink = () => {
     const link = `${window.location.origin}/chat/${roomId}`;
-    navigator.clipboard.writeText(link);
+    if (currentRoom?.is_private && currentRoom?.passcode) {
+      const inviteText = `✦ Join my private space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`;
+      navigator.clipboard.writeText(inviteText);
+      showToast(`Invite copied! Passcode is ${currentRoom.passcode}`, "success");
+    } else {
+      const inviteText = `✦ Join my space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}`;
+      navigator.clipboard.writeText(inviteText);
+      showToast("Room invite link copied to clipboard! Share it with friends.", "success");
+    }
     setIsCopied(true);
-    showToast("Room invite link copied to clipboard! Share it with friends.", "success");
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const getWhatsAppShareUrl = () => {
+    if (typeof window === 'undefined') return '#';
+    const link = `${window.location.origin}/chat/${roomId}`;
+    const text = currentRoom?.is_private && currentRoom?.passcode
+      ? `✦ Join my private space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`
+      : `✦ Join my space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
+
+  const handleUnlockPasscode = async (e) => {
+    e.preventDefault();
+    setPasscodeError("");
+
+    if (!enteredPasscode.trim()) {
+      setPasscodeError("Please enter the room passcode.");
+      return;
+    }
+
+    if (enteredPasscode.trim() !== inviteRoom?.passcode?.trim()) {
+      setPasscodeError("Incorrect passcode. Please check with the room host.");
+      return;
+    }
+
+    // Passcode correct!
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setIsVerifyingPasscode(true);
+    try {
+      await supabase.from("room_members").upsert({
+        room_id: roomId,
+        user_id: user.id
+      }, { onConflict: "room_id, user_id" });
+
+      setIsPasscodeLocked(false);
+      showToast("Passcode verified! Welcome to the private space ✨", "success");
+    } catch (err) {
+      setPasscodeError("Failed to enter room. Please try again.");
+    } finally {
+      setIsVerifyingPasscode(false);
+    }
   };
 
   const handleLeaveRoom = async () => {
@@ -790,6 +881,84 @@ export default function ChatPage({ params }) {
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-full border-4 border-black border-t-[#ffd028] animate-spin mb-4" />
         <p className="font-bold text-sm text-[#18181b]">Opening your vibe space...</p>
+      </div>
+    );
+  }
+
+  // ── PRIVATE SPACE PASSCODE UNLOCK SCREEN ────────────────
+  if (isPasscodeLocked && isReady) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-4.25rem)]">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 450, damping: 30 }}
+          className="w-full max-w-md bg-[#faf6ef] border-2 border-black rounded-[2.5rem] p-6 sm:p-8 shadow-[8px_8px_0px_#18181b] flex flex-col items-center text-center relative overflow-hidden"
+        >
+          {/* Private Badge */}
+          <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-[#34d399] px-3.5 py-1 rounded-full text-xs font-black mb-5 shadow-sm border border-black">
+            <Lock className="w-3.5 h-3.5" />
+            <span>Private Space</span>
+          </div>
+
+          {/* Big Lock Icon */}
+          <div className="w-20 h-20 rounded-3xl bg-[#34d399] border-2 border-black flex items-center justify-center text-3xl shadow-[4px_4px_0px_#18181b] mb-4 rotate-[-2deg]">
+            🔒
+          </div>
+
+          <h2 className="text-xs font-black uppercase tracking-wider text-stone-500 mb-1">
+            Passcode Required
+          </h2>
+          <h1 className="text-2xl sm:text-3xl font-black text-[#18181b] tracking-tight mb-2">
+            {inviteRoom?.name || "Private Space"}
+          </h1>
+          <p className="text-xs text-stone-600 max-w-xs font-medium mb-6">
+            This is a private space protected by the room host. Enter the passcode to unlock and enter.
+          </p>
+
+          <form onSubmit={handleUnlockPasscode} className="w-full space-y-3">
+            {passcodeError && (
+              <div className="p-3 text-xs font-bold text-red-600 bg-red-100 border border-red-300 rounded-xl">
+                {passcodeError}
+              </div>
+            )}
+
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Enter Room Passcode / PIN"
+                value={enteredPasscode}
+                onChange={(e) => setEnteredPasscode(e.target.value)}
+                autoFocus
+                className="bg-white border-2 border-black rounded-2xl h-12 text-center text-base font-mono font-black tracking-widest focus-visible:ring-2 focus-visible:ring-[#34d399]"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isVerifyingPasscode || !enteredPasscode.trim()}
+              className="w-full py-4 px-6 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-sm border-2 border-black shadow-[4px_4px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[3px_3px_0px_#18181b] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isVerifyingPasscode ? (
+                <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+              ) : (
+                <>
+                  <span>Unlock & Enter Space</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <Link
+            href="/"
+            className="mt-4 text-xs font-bold text-stone-500 hover:text-black underline transition-colors"
+          >
+            Or return to home page
+          </Link>
+        </motion.div>
+
+        <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
       </div>
     );
   }
@@ -894,8 +1063,31 @@ export default function ChatPage({ params }) {
 
           <div className="bg-white border-2 border-[#18181b] rounded-full px-3.5 sm:px-4 py-1.5 flex items-center gap-2 shadow-[2px_2px_0px_#18181b] text-xs sm:text-sm font-black text-[#18181b]">
             <span className="text-[#ffd028]">✦</span>
-            <span className="truncate max-w-[150px] sm:max-w-[240px]">{currentRoom?.name || "Vibe Space"}</span>
+            <span className="truncate max-w-[110px] sm:max-w-[180px]">{currentRoom?.name || "Vibe Space"}</span>
           </div>
+
+          {/* Dynamic Category Pill */}
+          {currentRoom?.category && (
+            <span className="hidden sm:inline-flex items-center text-[10px] font-black bg-stone-100 text-stone-700 px-2.5 py-1 rounded-full border border-stone-300 shadow-xs">
+              {currentRoom.category}
+            </span>
+          )}
+
+          {/* Passcode Badge for Private Space */}
+          {currentRoom?.is_private && currentRoom?.passcode && (
+            <div 
+              onClick={() => {
+                navigator.clipboard.writeText(currentRoom.passcode);
+                showToast(`Passcode "${currentRoom.passcode}" copied!`, "success");
+              }}
+              className="bg-[#34d399] border-2 border-black rounded-full px-2.5 sm:px-3 py-1 flex items-center gap-1.5 shadow-[2px_2px_0px_#18181b] text-xs font-black text-black cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+              title="Click to copy passcode"
+            >
+              <Lock className="w-3 h-3" />
+              <span className="hidden sm:inline">PIN:</span>
+              <span className="font-mono bg-white/90 px-1.5 py-0.5 rounded-md border border-black/20 font-bold">{currentRoom.passcode}</span>
+            </div>
+          )}
         </div>
 
         {/* Right: Voice Call, Sound Toggle, Mobile Sidebar Toggle & Invite */}
@@ -1005,20 +1197,78 @@ export default function ChatPage({ params }) {
                 <span className="hidden sm:inline">Invite</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-3 bg-white border-2 border-[#18181b] rounded-2xl shadow-[4px_4px_0px_#18181b]">
-              <h4 className="font-bold text-xs mb-2">Share Room Link</h4>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={typeof window !== 'undefined' ? `${window.location.origin}/chat/${roomId}` : ''}
-                  className="h-8 bg-stone-100 border border-stone-300 text-xs rounded-xl"
-                />
+            <PopoverContent align="end" className="w-80 p-4 bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h4 className="font-black text-xs text-[#18181b]">
+                    {currentRoom?.is_private ? "Private Room Invite" : "Share Room Link"}
+                  </h4>
+                </div>
+                {currentRoom?.is_private && (
+                  <span className="text-[10px] font-black bg-[#34d399] text-black px-2 py-0.5 rounded-full border border-black flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Private</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Private Passcode Display Card */}
+              {currentRoom?.is_private && currentRoom?.passcode && (
+                <div className="p-2.5 bg-white border-2 border-black rounded-2xl flex items-center justify-between shadow-xs">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-stone-500 block">Room Passcode</span>
+                    <span className="text-base font-mono font-black tracking-widest text-[#18181b]">{currentRoom.passcode}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentRoom.passcode);
+                      showToast(`Passcode "${currentRoom.passcode}" copied!`, "success");
+                    }}
+                    className="text-xs font-bold bg-[#ffd028] px-2.5 py-1 rounded-xl border border-black hover:scale-105 active:scale-95 transition-transform"
+                  >
+                    Copy PIN
+                  </button>
+                </div>
+              )}
+
+              {/* URL Link Box */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-stone-500">Room Link</span>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/chat/${roomId}` : ''}
+                    className="h-9 bg-white border-2 border-black text-xs rounded-xl font-medium"
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className="bg-[#ffd028] hover:bg-[#fcc200] text-black font-black px-3.5 rounded-xl border-2 border-black text-xs flex items-center justify-center shadow-[2px_2px_0px_#18181b] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all shrink-0"
+                    title="Copy full invite"
+                  >
+                    {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-1 flex flex-col gap-2">
                 <button
                   onClick={handleCopyLink}
-                  className="bg-[#ffd028] text-black font-bold px-3 rounded-xl border border-black text-xs flex items-center justify-center shadow-sm"
+                  className="w-full py-2.5 rounded-2xl bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-xs border-2 border-black shadow-[2px_2px_0px_#18181b] active:scale-98 transition-all flex items-center justify-center gap-1.5"
                 >
-                  {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{currentRoom?.is_private ? "Copy Full Invite (Link + PIN)" : "Copy Invite Link"}</span>
                 </button>
+
+                <a
+                  href={getWhatsAppShareUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-xs border-2 border-black shadow-[2px_2px_0px_#18181b] active:scale-98 transition-all flex items-center justify-center gap-1.5 text-center"
+                >
+                  <span>Share via WhatsApp 💬</span>
+                </a>
               </div>
             </PopoverContent>
           </Popover>
@@ -1115,7 +1365,14 @@ export default function ChatPage({ params }) {
           {/* Sidebar Footer */}
           <div className="pt-2 border-t-2 border-stone-100 shrink-0 space-y-1.5">
             <div className="bg-[#faf6ef] border border-stone-200 rounded-2xl p-2 text-center">
-              <span className="text-[10px] font-black uppercase text-stone-500 block">Space</span>
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <span className="text-[9px] font-black uppercase text-stone-500">Space</span>
+                {currentRoom?.category && (
+                  <span className="text-[9px] font-bold bg-white px-1.5 py-0.2 rounded border border-stone-300 text-stone-600">
+                    {currentRoom.category}
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-black text-[#18181b] truncate">{currentRoom?.name}</p>
             </div>
 

@@ -136,7 +136,11 @@ export function AuthProvider({ children }) {
       .insert([
         {
           name: roomData.name,
-          created_by: user?.id
+          created_by: user?.id,
+          is_private: roomData.is_private || false,
+          passcode: roomData.passcode || null,
+          max_members: roomData.max_members || null,
+          category: roomData.category || "General",
         }
       ])
       .select()

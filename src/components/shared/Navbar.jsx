@@ -22,7 +22,7 @@ export function Navbar() {
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-sm group-hover:scale-105 transition-transform duration-200">
               <span className="text-[#ffd028] text-sm font-black">✦</span>
-              <span className="font-bold text-sm tracking-tight text-white">VibeChat</span>
+              <span className="font-bold text-sm tracking-tight text-white">ChaTin</span>
             </div>
           </Link>
 

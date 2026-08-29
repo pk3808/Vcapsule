@@ -56,7 +56,7 @@ export function AuthModal({ isOpen, onOpenChange }) {
         <DialogHeader className="space-y-1 mb-4">
           <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3 py-1 rounded-full text-xs font-bold w-fit mb-2">
             <span className="text-[#ffd028]">✦</span>
-            <span>VibeChat</span>
+            <span>ChaTin</span>
           </div>
           <DialogTitle className="text-2xl font-black text-[#18181b]">
             {isLogin ? "Welcome back! 👋" : "Join the club! ✨"}
