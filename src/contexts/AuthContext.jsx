@@ -15,18 +15,6 @@ export function AuthProvider({ children }) {
       // 1. Get initial session
       const { data: { session } } = await supabase.auth.getSession();
 
-        // Fetch rooms globally for the app
-        const fetchRooms = async () => {
-          const { data, error } = await supabase
-            .from('rooms')
-            .select('*')
-            .order('created_at', { ascending: false });
-          if (!error && data) {
-            setRooms(data);
-          }
-        };
-        fetchRooms();
-
       if (session?.user) {
         // Fetch profile
         const { data: profile } = await supabase
@@ -36,41 +24,70 @@ export function AuthProvider({ children }) {
           .single();
 
         if (profile) {
-           setUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: profile.username,
-              avatar: profile.avatar_url,
-           });
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: profile.username,
+            avatar: profile.avatar_url,
+          });
         }
+
+        // Fetch user's joined rooms
+        const { data: userMemberships } = await supabase
+          .from("room_members")
+          .select("rooms (*)")
+          .eq("user_id", session.user.id);
+
+        if (userMemberships) {
+          const userRooms = userMemberships
+            .map(m => m.rooms)
+            .filter(Boolean);
+          setRooms(userRooms);
+        }
+      } else {
+        setUser(null);
+        setRooms([]);
       }
       setMounted(true);
 
       // 2. Setup auth listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-         if (event === "SIGNED_IN" && session) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
+        if (event === "SIGNED_IN" && session) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
 
-            if (profile) {
-               setUser({
-                  id: session.user.id,
-                  email: session.user.email,
-                  name: profile.username,
-                  avatar: profile.avatar_url,
-               });
-            }
-         } else if (event === "SIGNED_OUT") {
-            setUser(null);
-         }
+          if (profile) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email,
+              name: profile.username,
+              avatar: profile.avatar_url,
+            });
+          }
+
+          const { data: userMemberships } = await supabase
+            .from("room_members")
+            .select("rooms (*)")
+            .eq("user_id", session.user.id);
+
+          if (userMemberships) {
+            const userRooms = userMemberships
+              .map(m => m.rooms)
+              .filter(Boolean);
+            setRooms(userRooms);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setRooms([]);
+        }
       });
 
       return () => {
-         subscription.unsubscribe();
-      }
+        subscription.unsubscribe();
+      };
     };
 
     initializeAuth();

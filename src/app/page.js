@@ -253,33 +253,6 @@ export default function Home() {
 
         </div>
 
-        {/* Real User Rooms (if any created) */}
-        {Array.isArray(rooms) && rooms.length > 0 && (
-          <div className="pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-black text-[#18181b]">Your Active Spaces</h3>
-              <Link href="/profile" className="text-xs font-bold text-stone-500 hover:text-black">View all →</Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {rooms.map((room) => (
-                <Link href={`/chat/${room.id}`} key={room.id}>
-                  <div className="bg-white border-2 border-[#18181b] rounded-2xl p-4 shadow-[3px_3px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_#18181b] transition-all group">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-8 h-8 rounded-full bg-[#ffd028] border border-black flex items-center justify-center font-bold text-xs">
-                        #
-                      </div>
-                      <span className="text-[10px] font-bold bg-black text-white px-2 py-0.5 rounded-full">Active</span>
-                    </div>
-                    <h4 className="font-bold text-sm text-[#18181b] group-hover:text-amber-600 transition-colors truncate">{room.name}</h4>
-                    <p className="text-xs text-stone-500 mt-0.5">Click to chat →</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Category Pill Cloud */}
         <div className="pt-2 flex flex-wrap gap-2.5 items-center">
           <span className="text-xs font-black text-stone-500">Categories:</span>

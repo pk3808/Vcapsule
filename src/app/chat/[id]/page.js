@@ -13,7 +13,7 @@ import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
-  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff
+  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import EmojiPicker from "emoji-picker-react";
 import imageCompression from "browser-image-compression";
 import { VoiceNotePlayer } from "@/components/shared/VoiceNotePlayer";
 import { VoiceCallModal } from "@/components/shared/VoiceCallModal";
+import { AuthModal } from "@/components/shared/AuthModal";
 import { useToast } from "@/components/shared/VibeToast";
 import { playSendSound, playReceiveSound, playReactionSound } from "@/lib/soundFx";
 
@@ -33,6 +34,8 @@ export default function ChatPage({ params }) {
 
   const [isReady, setIsReady] = useState(false);
   const [currentRoom, setCurrentRoom] = useState(null);
+  const [inviteRoom, setInviteRoom] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -77,11 +80,6 @@ export default function ChatPage({ params }) {
     const initializeRoom = async () => {
       if (!mounted || !isActive) return;
 
-      if (!user) {
-        router.replace("/");
-        return;
-      }
-
       try {
         // 1. Fetch Room Info
         const { data: room, error: roomError } = await supabase
@@ -92,11 +90,23 @@ export default function ChatPage({ params }) {
 
         if (roomError || !room) {
           console.error("Room not found:", roomError);
-          router.replace("/");
+          if (isActive) {
+            setInviteRoom(null);
+            setIsReady(true);
+          }
           return;
         }
 
-        if (isActive) setCurrentRoom({ name: room.name, purpose: "Vibe and chat room" });
+        if (isActive) {
+          setCurrentRoom({ name: room.name, purpose: "Vibe and chat room" });
+          setInviteRoom(room);
+        }
+
+        // If not logged in, stop here and show the Invite Landing screen
+        if (!user) {
+          if (isActive) setIsReady(true);
+          return;
+        }
 
         // 2. Fetch Initial Messages
         const { data: initialMessages, error: msgError } = await supabase
@@ -751,6 +761,68 @@ export default function ChatPage({ params }) {
     );
   }
 
+  // ── INVITATION LANDING SCREEN (WHEN NOT LOGGED IN) ─────────
+  if (!user && isReady) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-4.25rem)]">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 450, damping: 30 }}
+          className="w-full max-w-md bg-[#faf6ef] border-2 border-black rounded-[2.5rem] p-6 sm:p-8 shadow-[8px_8px_0px_#18181b] flex flex-col items-center text-center relative overflow-hidden"
+        >
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3.5 py-1 rounded-full text-xs font-bold mb-5 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-[#ffd028]" />
+            <span>Room Invitation</span>
+          </div>
+
+          {/* Big Room Icon / Stamp */}
+          <div className="w-20 h-20 rounded-3xl bg-[#ffd028] border-2 border-black flex items-center justify-center text-4xl shadow-[4px_4px_0px_#18181b] mb-4 rotate-[-3deg]">
+            💬
+          </div>
+
+          {/* Invitation Heading */}
+          <h2 className="text-xs font-black uppercase tracking-wider text-stone-500 mb-1">
+            You're invited to join
+          </h2>
+          <h1 className="text-2xl sm:text-3xl font-black text-[#18181b] tracking-tight mb-3">
+            {inviteRoom?.name || "Vibe Space"}
+          </h1>
+          <p className="text-xs text-stone-600 max-w-xs font-medium mb-6">
+            Hop in to start chatting, sharing photos & videos, sending voice notes, and hopping on voice calls!
+          </p>
+
+          {/* Room status card */}
+          <div className="flex items-center gap-2 p-2.5 bg-white border-2 border-black rounded-2xl w-full justify-center mb-6 shadow-sm">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs font-black text-[#18181b]">Active Chat Space · Free to Join</span>
+          </div>
+
+          {/* Yellow Pill CTA Button */}
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="w-full py-4 px-6 rounded-full bg-[#ffd028] hover:bg-[#fcc200] text-black font-black text-sm border-2 border-black shadow-[4px_4px_0px_#18181b] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[3px_3px_0px_#18181b] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center gap-2"
+          >
+            <span>Join & Start Chatting</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          {/* Back Home Link */}
+          <Link
+            href="/"
+            className="mt-4 text-xs font-bold text-stone-500 hover:text-black underline transition-colors"
+          >
+            Or return to home page
+          </Link>
+        </motion.div>
+
+        {/* Auth Modal Trigger */}
+        <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   const mergedMembersMap = new Map();
@@ -882,7 +954,7 @@ export default function ChatPage({ params }) {
             
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-black bg-[#34d399] text-black px-2 py-0.5 rounded-full border border-black">
-                {allMembers.length} active
+                {allMembers.filter(m => m.isOnline).length} active
               </span>
               {isMobileSidebarOpen && (
                 <button
@@ -903,7 +975,9 @@ export default function ChatPage({ params }) {
                 className={`flex items-center gap-3 p-2 rounded-2xl border transition-all ${
                   member.isMe
                     ? "bg-[#faf6ef] border-black/30 shadow-sm"
-                    : "bg-white border-transparent hover:border-stone-200 hover:bg-stone-50"
+                    : member.isOnline
+                    ? "bg-white border-transparent hover:border-stone-200 hover:bg-stone-50"
+                    : "bg-stone-50/70 border-transparent opacity-75"
                 }`}
               >
                 <div className="relative">
@@ -913,19 +987,21 @@ export default function ChatPage({ params }) {
                       {(member.name || "U").charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-black rounded-full" />
+                  <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 border border-black rounded-full ${
+                    member.isOnline ? "bg-emerald-500" : "bg-stone-400"
+                  }`} />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-[#18181b] truncate">
+                    <span className={`font-bold text-xs truncate ${member.isOnline ? "text-[#18181b]" : "text-stone-500"}`}>
                       {member.name}
                     </span>
                     {member.isMe ? (
                       <span className="text-[9px] font-black bg-[#ffd028] text-black px-1.5 py-0.2 rounded-full border border-black">
                         You
                       </span>
-                    ) : (
+                    ) : member.isOnline ? (
                       <button
                         onClick={() => setActiveCallState({
                           type: "OUTGOING",
@@ -936,10 +1012,10 @@ export default function ChatPage({ params }) {
                       >
                         <Phone className="w-2.5 h-2.5" />
                       </button>
-                    )}
+                    ) : null}
                   </div>
-                  <span className="text-[10px] text-emerald-600 font-bold block">
-                    ● In Room
+                  <span className={`text-[10px] font-bold block ${member.isOnline ? "text-emerald-600" : "text-stone-400"}`}>
+                    {member.isOnline ? "● In Room" : "○ Offline"}
                   </span>
                 </div>
               </div>
