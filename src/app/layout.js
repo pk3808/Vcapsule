@@ -28,8 +28,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastProvider } from "@/components/shared/VibeToast";
 
 export const metadata = {
-  title: "VibeChat — The Fun Concept Chat App",
-  description: "Explore knowledge and vibe with AI and friends in a playful, aesthetic space.",
+  title: "Jiyo — Live Hangout & Audio Spaces",
+  description: "Live voice calls, audio notes, and endless conversation with friends. Real vibes, no algorithms.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({ children }) {

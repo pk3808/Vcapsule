@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "./AuthModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { User, LogOut, ArrowRight } from "lucide-react";
+import { User, LogOut, ArrowRight, Waves } from "lucide-react";
 
 export function Navbar() {
   const { user, mounted, logout } = useAuth();
@@ -18,11 +18,11 @@ export function Navbar() {
         {/* Full width stretching from extreme left to extreme right corners */}
         <div className="w-full px-4 sm:px-8 md:px-12 flex h-16 items-center justify-between">
           
-          {/* Logo Badge (ChaTin style) at far left corner */}
+          {/* Logo Badge (Jiyo with deep yellow wave icon) at far left corner */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-sm group-hover:scale-105 transition-transform duration-200">
-              <span className="text-[#ffd028] text-sm font-black">✦</span>
-              <span className="font-bold text-sm tracking-tight text-white">ChaTin</span>
+            <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-[2px_2px_0px_#ffd028] group-hover:scale-105 transition-transform duration-200">
+              <span className="font-black text-sm tracking-tight text-white pl-0.5">Jiyo</span>
+              <Waves className="w-4 h-4 text-[#ffd028]" />
             </div>
           </Link>
 

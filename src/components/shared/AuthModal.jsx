@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { RefreshCcw, ArrowRight } from "lucide-react";
+import { RefreshCcw, ArrowRight, Waves } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function AuthModal({ isOpen, onOpenChange }) {
@@ -17,30 +17,29 @@ export function AuthModal({ isOpen, onOpenChange }) {
   const [isLogin, setIsLogin] = useState(true);
   const [avatarSeed, setAvatarSeed] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const generateNewAvatar = () => {
-    setAvatarSeed(Math.random().toString(36).substring(7));
+  const generateRandomAvatar = () => {
+    const random = Math.random().toString(36).substring(7);
+    setAvatarSeed(random);
   };
 
-  const currentAvatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${username}${avatarSeed}`;
-  const [errorMsg, setErrorMsg] = useState("");
+  const getAvatarUrl = () => {
+    const seed = avatarSeed || email || "default";
+    return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}`;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
-    if (!email || !password) return;
-
     setIsLoading(true);
+
     try {
       if (isLogin) {
         await login(email, password);
       } else {
-        if (!username) {
-          setErrorMsg("Username is required.");
-          setIsLoading(false);
-          return;
-        }
-        await register(email, password, username, currentAvatarUrl);
+        const finalAvatar = getAvatarUrl();
+        await register(email, password, username, finalAvatar);
       }
       onOpenChange(false);
     } catch (err) {
@@ -54,9 +53,9 @@ export function AuthModal({ isOpen, onOpenChange }) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px] bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] p-6">
         <DialogHeader className="space-y-1 mb-4">
-          <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3 py-1 rounded-full text-xs font-bold w-fit mb-2">
-            <span className="text-[#ffd028]">✦</span>
-            <span>ChaTin</span>
+          <div className="inline-flex items-center gap-1.5 bg-[#18181b] text-white px-3 py-1 rounded-full text-xs font-bold w-fit mb-2 shadow-[2px_2px_0px_#ffd028]">
+            <span className="font-black">Jiyo</span>
+            <Waves className="w-3.5 h-3.5 text-[#ffd028]" />
           </div>
           <DialogTitle className="text-2xl font-black text-[#18181b]">
             {isLogin ? "Welcome back! 👋" : "Join the club! ✨"}

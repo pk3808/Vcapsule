@@ -7,7 +7,7 @@ import { AuthModal } from "@/components/shared/AuthModal";
 import { CreateRoomModal } from "@/components/shared/CreateRoomModal";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Plus, Hash, Flame, Music, Film, BookOpen, Coffee, Smile, Users, Globe, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, Plus, Hash, Flame, Music, Film, BookOpen, Coffee, Smile, Users, Globe, Loader2, Waves } from "lucide-react";
 
 export default function Home() {
   const { user } = useAuth();
@@ -148,8 +148,8 @@ export default function Home() {
           {/* Top Tag & Social Proof Row */}
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <div className="bg-[#18181b] text-white px-3.5 py-1.5 rounded-full inline-flex items-center gap-2 text-xs font-black shadow-[3px_3px_0px_#ffd028]">
-              <span className="text-[#ffd028]">✦</span>
-              <span>ChaTin Spaces</span>
+              <span>Jiyo Spaces</span>
+              <Waves className="w-3.5 h-3.5 text-[#ffd028]" />
               <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse"></span>
             </div>
 

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Hash, LogOut, Settings, User, MessageSquare, ArrowRight, Sparkles, Plus, Lock, Globe, Loader2, Trash2 } from "lucide-react";
+import { Hash, LogOut, Settings, User, MessageSquare, ArrowRight, Sparkles, Plus, Lock, Globe, Loader2, Trash2, Waves } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -139,8 +139,9 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white border-2 border-[#18181b] rounded-3xl p-6 sm:p-8 shadow-[5px_5px_0px_#18181b] mb-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 relative overflow-hidden"
       >
-        <div className="absolute top-4 right-4 bg-[#ffd028] text-black font-extrabold text-[10px] uppercase px-3 py-1 rounded-full border border-black shadow-[1px_1px_0px_#18181b]">
-          ChaTin Member
+        <div className="absolute top-4 right-4 bg-[#ffd028] text-black font-extrabold text-[10px] uppercase px-3 py-1 rounded-full border border-black shadow-[1px_1px_0px_#18181b] flex items-center gap-1.5">
+          <span>Jiyo Member</span>
+          <Waves className="w-3 h-3 text-black" />
         </div>
 
         <div className="relative">

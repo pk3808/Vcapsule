@@ -783,11 +783,11 @@ export default function ChatPage({ params }) {
   const handleCopyLink = () => {
     const link = `${window.location.origin}/chat/${roomId}`;
     if (currentRoom?.is_private && currentRoom?.passcode) {
-      const inviteText = `✦ Join my private space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`;
+      const inviteText = `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`;
       navigator.clipboard.writeText(inviteText);
       showToast(`Invite copied! Passcode is ${currentRoom.passcode}`, "success");
     } else {
-      const inviteText = `✦ Join my space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}`;
+      const inviteText = `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}`;
       navigator.clipboard.writeText(inviteText);
       showToast("Room invite link copied to clipboard! Share it with friends.", "success");
     }
@@ -799,8 +799,8 @@ export default function ChatPage({ params }) {
     if (typeof window === 'undefined') return '#';
     const link = `${window.location.origin}/chat/${roomId}`;
     const text = currentRoom?.is_private && currentRoom?.passcode
-      ? `✦ Join my private space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`
-      : `✦ Join my space "${currentRoom?.name || "Vibe Space"}" on ChaTin!\n🔗 Link: ${link}`;
+      ? `🌊 Join my private space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}\n🔑 Passcode: ${currentRoom.passcode}`
+      : `🌊 Join my space "${currentRoom?.name || "Vibe Space"}" on Jiyo!\n🔗 Link: ${link}`;
     return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   };
 
