@@ -13,8 +13,9 @@ import {
   Smile, Paperclip, Mic, Send, Image as ImageIcon, Video,
   Hash, Users, Copy, Check, CheckCheck, Share2, ArrowLeft, Square,
   ArrowDown, Sparkles, ChevronDown, Plus, X, Download,
-  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight
+  Volume2, VolumeX, Heart, Maximize2, Phone, PhoneCall, PhoneOff, ArrowRight, LogOut
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import EmojiPicker from "emoji-picker-react";
@@ -36,6 +37,8 @@ export default function ChatPage({ params }) {
   const [currentRoom, setCurrentRoom] = useState(null);
   const [inviteRoom, setInviteRoom] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [messages, setMessages] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -745,6 +748,35 @@ export default function ChatPage({ params }) {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handleLeaveRoom = async () => {
+    if (!user || !roomId) return;
+    setIsLeaving(true);
+    try {
+      // 1. Delete membership from database
+      await supabase
+        .from("room_members")
+        .delete()
+        .eq("room_id", roomId)
+        .eq("user_id", user.id);
+
+      // 2. Untrack presence
+      if (channelRef.current) {
+        try {
+          await channelRef.current.untrack();
+        } catch (e) {}
+      }
+
+      showToast(`You left ${currentRoom?.name || "the room"}`, "info");
+      router.push("/");
+    } catch (err) {
+      console.error("Error leaving room:", err);
+      showToast("Failed to leave room. Please try again.", "error");
+    } finally {
+      setIsLeaving(false);
+      setIsLeaveModalOpen(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -1023,11 +1055,21 @@ export default function ChatPage({ params }) {
           </div>
 
           {/* Sidebar Footer */}
-          <div className="pt-2 border-t-2 border-stone-100 shrink-0">
-            <div className="bg-[#faf6ef] border border-stone-200 rounded-2xl p-2.5 text-center">
-              <span className="text-[10px] font-black uppercase text-stone-500 block mb-0.5">Active Space</span>
+          <div className="pt-2 border-t-2 border-stone-100 shrink-0 space-y-1.5">
+            <div className="bg-[#faf6ef] border border-stone-200 rounded-2xl p-2 text-center">
+              <span className="text-[10px] font-black uppercase text-stone-500 block">Space</span>
               <p className="text-xs font-black text-[#18181b] truncate">{currentRoom?.name}</p>
             </div>
+
+            {/* Leave Space Button */}
+            <button
+              onClick={() => setIsLeaveModalOpen(true)}
+              className="w-full py-2 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+              title="Leave this chat space"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Leave Space</span>
+            </button>
           </div>
         </div>
 
@@ -1469,6 +1511,46 @@ export default function ChatPage({ params }) {
         activeCallState={activeCallState}
         setActiveCallState={setActiveCallState}
       />
+
+      {/* ── LEAVE SPACE CONFIRMATION MODAL ────────────────── */}
+      <Dialog open={isLeaveModalOpen} onOpenChange={setIsLeaveModalOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#faf6ef] border-2 border-[#18181b] rounded-3xl shadow-[6px_6px_0px_#18181b] p-6">
+          <DialogHeader className="space-y-2">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 border-2 border-black flex items-center justify-center text-2xl shadow-[2px_2px_0px_#18181b]">
+              🚪
+            </div>
+            <DialogTitle className="text-xl font-black text-[#18181b]">
+              Leave {currentRoom?.name || "this Space"}?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-stone-600 font-medium leading-relaxed">
+              You will be removed from the members list and the space will no longer appear in your active spaces. You'll need an invite link to rejoin.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center gap-3 mt-6">
+            <button
+              onClick={() => setIsLeaveModalOpen(false)}
+              className="flex-1 py-3 rounded-full bg-white hover:bg-stone-100 text-stone-700 font-bold text-xs border-2 border-black shadow-[2px_2px_0px_#18181b] transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleLeaveRoom}
+              disabled={isLeaving}
+              className="flex-1 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-black text-xs border-2 border-black shadow-[2px_2px_0px_#18181b] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {isLeaving ? (
+                <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              ) : (
+                <>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Leave Space</span>
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
